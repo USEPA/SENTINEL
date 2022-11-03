@@ -1,0 +1,48 @@
+---
+title: "Single Node QA Table"
+header-includes: \usepackage{float}
+output: 
+  pdf_document: 
+    fig_crop: no
+geometry: left=1cm,right=1cm,top=0.5cm,bottom=0.5cm
+params:
+  draw_caltab: NULL
+  SN_1: NULL
+  date_1: NULL
+  start.end.time_1: NULL
+  OutputDate: NULL
+  RCodeVersion: NULL
+  QATableID_1: NULL
+  Analyst: NULL
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results= "asis"}
+# create leading lines of document
+a <- paste0("SPod S/N: ", params$SN_1)
+c <- paste0("Date: ", params$date_1)
+d <- paste0("Start and End Time: ", params$start.end.time_1)
+e <- paste0("Output Date: ", params$OutputDate)
+f <- paste0("R Code Version: ", params$RCodeVersion)
+g <- paste0("QA Table ID:  ",params$QATableID_1)
+h <- paste0("SPod Data Analyst Name and Signature:  ", params$Analyst)
+i <- "Notes: ____________________________________________________________"
+cat(paste0(
+           g, '\n','\n',
+           a, '\n','\n',
+           c, '\n','\n',  
+           d, '\n','\n',
+           e, '\n','\n',
+           f, '\n','\n',
+           h, '\n','\n', 
+           i
+  ))
+
+```
+
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error = TRUE}
+if (!is.null(params$draw_caltab))
+  params$draw_caltab()
+```

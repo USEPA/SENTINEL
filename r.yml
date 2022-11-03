@@ -1,0 +1,26 @@
+---
+packages:
+- cran_mirror: https://raw.githubusercontent.com/USEPA/cflinuxfs3-CRAN/master/cflinuxfs3/
+  packages:
+      - name: openair
+      - name: dplyr
+      - name: leaflet
+      - name: forcats
+      - name: tidyr
+      - name: openairmaps
+      - name: collapsibleTree
+      - name: cowplot
+      - name: data.table
+      - name: DT
+      - name: ggpubr
+      - name: grid
+      - name: gridExtra
+      - name: hexbin
+      - name: kableExtra
+      - name: latticeExtra
+      - name: plotly
+      - name: quantreg
+      - name: shinycssloaders
+      - name: shinydashboard
+      - name: splines2
+      - name: tibbletime

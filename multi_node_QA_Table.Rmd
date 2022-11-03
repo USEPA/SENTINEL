@@ -1,0 +1,53 @@
+---
+title: "Multi Node QA Table"
+header-includes: \usepackage{float}
+output: 
+  pdf_document: 
+    fig_crop: no
+geometry: left=1cm,right=1cm,top=0.5cm,bottom=0.5cm
+params:
+  draw_subcaltab: NULL
+  SN1: NULL
+  SN2: NULL
+  date: NULL
+  start.end.time: NULL
+  OutputDate: NULL
+  RCodeVersion: NULL
+  QATableID: NULL
+  Analyst: NULL
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results= "asis"}
+# create leading lines of document
+a <- paste0("SPod 1 S/N: ", params$SN1)
+b <- paste0("SPod 2 S/N: ", params$SN2)
+x <- paste0("Subtraction = ",params$SN1, " - ", params$SN2 )
+c <- paste0("Date: ", params$date)
+d <- paste0("Start and End Time: ", params$start.end.time)
+e <- paste0("Output Date: ", params$OutputDate)
+f <- paste0("R Code Version: ", params$RCodeVersion)
+g <- paste0("QA Table ID:  ",params$QATableID)
+h <- paste0("SPod Data Analyst Name and Signature:  ", params$Analyst)
+i <- "Notes: ____________________________________________________________"
+cat(paste0(
+           g, '\n','\n',
+           a, '\n','\n',
+           b, '\n','\n',
+           x, '\n','\n',
+           c, '\n','\n',  
+           d, '\n','\n',
+           e, '\n','\n',
+           f, '\n','\n',
+           h, '\n','\n', 
+           i
+  ))
+
+```
+
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error = TRUE}
+if (!is.null(params$draw_subcaltab))
+  params$draw_subcaltab()
+```

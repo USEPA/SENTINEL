@@ -1,0 +1,6 @@
+---
+applications:
+- name: SENTINEL
+  memory: 750M
+  buildpacks: 
+    - https://github.com/spfeiffe/r-buildpack-testing2.git
