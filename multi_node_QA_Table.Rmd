@@ -19,15 +19,15 @@ params:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results= "asis"}
 # create leading lines of document
-a <- paste0("SPod 1 S/N: ", params$SN1)
-b <- paste0("SPod 2 S/N: ", params$SN2)
+a <- paste0("Unit 1 S/N: ", params$SN1)
+b <- paste0("Unit 2 S/N: ", params$SN2)
 x <- paste0("Subtraction = ",params$SN1, " - ", params$SN2 )
 c <- paste0("Date: ", params$date)
 d <- paste0("Start and End Time: ", params$start.end.time)
 e <- paste0("Output Date: ", params$OutputDate)
 f <- paste0("R Code Version: ", params$RCodeVersion)
 g <- paste0("QA Table ID:  ",params$QATableID)
-h <- paste0("SPod Data Analyst Name and Signature:  ", params$Analyst)
+h <- paste0("Data Analyst Name and Signature:  ", params$Analyst)
 i <- "Notes: ____________________________________________________________"
 cat(paste0(
            g, '\n','\n',

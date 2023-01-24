@@ -33,8 +33,8 @@ getBaseline <- function(pid, timestamp, df=NA){
   fit <- rq(pid0~ns(time0, df), tau=.02)
   baseline <- predict(fit)  
 
-  plot(pid0~time0, type="l")
-  lines(baseline~time0, col="red")
+  # plot(pid0~time0, type="l")
+  # lines(baseline~time0, col="red")
   
   return(baseline)
 }

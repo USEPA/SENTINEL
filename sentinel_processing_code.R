@@ -1,3 +1,40 @@
+# M.MacDonald 
+# December 2022
+# Sentinel Processing Code 
+
+## recode 12/2022
+# read in 10 sec files
+# rename
+# auto QA (set each of these to a code in QA col)
+  # check file size? test for data output rate (flag if not 10)
+  # check for high humidity or high humidity swings
+  # check for high temp swings 
+  # check for missing data 
+  # check for very negative PID
+  # check for very high PID
+  # check for repeated wind vals
+  # check for illogical wind vals 
+# fix Canister cols with inputs 
+# background correct
+# x and y wind 
+# make even 10 sec
+# add wind correction col
+# output processed 10 sec
+# roll to 5 min even 
+# calc MDL 
+# output 5 min 
+# output finalk canister vals 
+# make graph with canister dots 
+
+
+# manual QA:
+# calibrations
+# wind rotations (replace wind col)
+
+
+
+
+
 
 ############################################################################################################ SECTION 1
 #Read in Pkgs
@@ -18,54 +55,41 @@ require(Cairo)
 require(ggplot2)
 require(dplyr)
 
-#replace with your file path
-
 # Load package - for "getBaseline" and related function
 find_rtools()
-load_all(
-#  "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/R Code/Shiny app/detrendr"
-#)
-#source( #be sure to use "getbaseline" from this and not detrendr!
-#  "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/R Code/Shiny app/getBaseline.R"
-#)
-#source( # If using this, need to edit the ScreenOffScale function so min is 0, sensits are lower-reading than Spod
-#  "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)//G-START Project_QAPP ID_0033295-QP-1-0/R Code/Shiny app/screeningFunctions.R" # edit max to 50
-#)
-
-############
-  "C:/Users/ETHOMA/OneDrive - Environmental Protection Agency (EPA)//Eben_SENTINEL/Shiny app/detrendr"
-)
+# load_all(
+#   "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/R Code/Shiny app/detrendr"
+# )
 source( #be sure to use "getbaseline" from this and not detrendr!
-  "C:/Users/ETHOMA/OneDrive - Environmental Protection Agency (EPA)//Eben_SENTINEL/Shiny app/getBaseline.R"
+  "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/R Code/Shiny app/getBaseline.R"
 )
 source( # If using this, need to edit the ScreenOffScale function so min is 0, sensits are lower-reading than Spod
-  "C:/Users/ETHOMA/OneDrive - Environmental Protection Agency (EPA)//Eben_SENTINEL/Shiny app/screeningFunctions.R" # edit max to 50
+  "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)//G-START Project_QAPP ID_0033295-QP-1-0/R Code/Shiny app/screeningFunctions.R" # edit max to 50
 )
-
 ############################################################################################################
 # USER INPUT BELOW:
 
 # Define Nodes: change to your node S/N here.  The raw data files need to have the node in the filename.
 nodes <-
-  c( "105", "106", "1037", "1262")
+  c( "1092")
 
 # Define File path to Sensit raw data folder (replace with your file path)
 data_folder_raw <-
   #"C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/Profile/Desktop/MM R Code/GSTART/greensboro app MM/Processed_Greensboro_Data/Site01/raw SC data"
-  "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/Raw Data/site_01/"
+  "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/Raw Data/site_01A/"
 # Define File path to Sensit folder to store data sets (replace with your file path) for 10 sec output
 data_folder_processed_10 <-
   #"C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/Profile/Desktop/MM R Code/GSTART/greensboro app MM/Processed_Greensboro_Data/Site01/10_sec/"
- "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/Processed Data/10_sec/Site01/"
+  "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/Processed Data/10_sec/Site01A/"
 # Define File path to Sensit folder to store data sets (replace with your file path) for 5 min output
 data_folder_processed_5 <-
   #"C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/Profile/Desktop/MM R Code/GSTART/greensboro app MM/Processed_Greensboro_Data/Site01/5_min/"
-  "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/Processed Data/5_min/Site01/"
+  "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/Processed Data/5_min/Site01A/"
 
 # Build time frame of dataset (complete)
 #replace dates below with the date range to process (can be multiple days/entire dataset)
-time_start = ymd('2021-10-26')
-time_end = ymd('2022-10-17') #update this one only in shiny version to keep all files read in#
+time_start = ymd('2022-09-27')
+time_end = ymd('2022-11-28') #update this one only in shiny version to keep all files read in#
 range_days = as.list(seq(
   floor_date(time_start, unit = "days"),
   floor_date(time_end, unit = "days"),
@@ -73,13 +97,13 @@ range_days = as.list(seq(
 ))
 
 # define lat / long and site / node
-site <- "S01"
-lat <- "36.07155"
-long <- "-79.9192"
+# site <- "S01"
+# lat <- "36.07155"
+# long <- "-79.9192"
 
-# site <- "S01A"
-# lat <- "36.071835"
-# long <- "-79.920215"
+site <- "S01A"
+lat <- "36.071835"
+long <- "-79.920215"
 
 # site <- "S02"
 # lat <- "36.074282"
@@ -107,8 +131,6 @@ names(final5mindf) <- c("Serial.number","timeCut","rawPID_ppb","rawPID_mv", "bc.
                           "chg.current","opp.current","trigportstat","trigactivestat","trigactiveflag", "trigsampleflag", "lat", "long", "site" )
 ##################################################################################################################
 # build 10 sec data frame
-#read in data
-#rename cols
 for (dateI in range_days) {
   for (node in nodes) {
     filename <-
@@ -118,38 +140,56 @@ for (dateI in range_days) {
              "_",
              dateI,
              ".csv") #this node must match node above exactly!
-    if (file.exists(filename)) {
+    if (file.exists(filename)) { #look for file 
       Data_sensit <- read_csv(
         filename,
         col_names = FALSE,
         col_types = cols(X2 = col_datetime(format = "%d-%b-%Y %H:%M:%S")),
-        skip = 3,
-      )
-      Data_sensit <-
-        Data_sensit[, c(2:19)] #limit to needed cols
-      names(Data_sensit) <-
-        c(
+        skip = 3)
+      names(Data_sensit) <- #rename cols
+        c("utc_time",
           "time",
-          "RawPID_ppb(ppb)",
-          "RawPID_mV(mV)",
-          "Temp_(deg_c)",
-          "RH(%)",
-          "Pressure(mbar)",
-          "WS(mph)",
-          "WD(deg)",
-          "S1_temp(arb)",
-          "S1_Heat(0-255)",
-          "S1_Set(arb)",
-          "Bat_volt(V)",
-          "Charge_Current_(mA)",
-          "Operate_Current_(mA)",
+          "rawPID_ppb",
+          "rawPID_mV",
+          "temp",
+          "rh",
+          "pressure",
+          "ws",
+          "wd",
+          "s1_temp",
+          "s1_heat",
+          "s1_set",
+          "bat_volt",
+          "charge_current",
+          "operate_current",
           "Trig_Port_Stat",
           "Trig_Active_Stat",
           "Trig_Active_Flag",
-          "Trig_Sample_Flag"
-        ) #rename cols
-      Data_sensit$serial.number <- paste0("SPOD", node)
+          "Trig_Sample_Flag", 
+          "lat",
+          "long") 
+      Data_sensit$serial.number <- paste0("SPOD", node)# input sensor node ID
 
+      }}}
+      
+      ###### auto QA
+      Data_sensit$QA <- 0 #set each of these to a code in QA col
+# check file size? test for data output rate (flag if not 10)
+# check for high humidity or high humidity swings
+# check for high temp swings 
+# check for missing data 
+      Data_sensit$QA <- ifelse(is.na(Data_sensit$rawPID_ppb),1,0 )
+# check for very negative PID
+      Data_sensit$QA <- ifelse(Data_sensit$rawPID_ppb < -10,2,0 )
+# check for very high PID
+      Data_sensit$QA <- ifelse(Data_sensit$rawPID_ppb > 1500,3,0 )
+# check for repeated wind vals
+      
+# check for illogical wind vals 
+      
+      
+      ###### auto QA
+      
       if (class(Data_sensit$`RawPID_ppb(ppb)`) != "numeric") {
         Data_sensit$`RawPID_ppb(ppb)` <-
           as.numeric(as.character(Data_sensit$`RawPID_ppb(ppb)`))
@@ -194,6 +234,8 @@ for (dateI in range_days) {
       # raw PID subtracted by background correction to the mv channel (standard BC, DF 24 default)
       Data_sensit_10[, 'RawPID_BCPID_mV(mV)'] <-
         Data_sensit_10[, 'RawPID_mV(mV)']  - Data_sensit_10[, 'BCPID_mV(mV)']
+      
+    
       # Calculate the u and v wind components
       Data_sensit_10[,'u.wind'] <- Data_sensit_10[, 'WS(mph)'] * sin(2 * pi * Data_sensit_10[, 'WD(deg)']/360)
       Data_sensit_10[,'v.wind'] <- Data_sensit_10[, 'WS(mph)'] * cos(2 * pi * Data_sensit_10[, 'WD(deg)']/360)
@@ -224,7 +266,7 @@ for (dateI in range_days) {
           "(10sec)_",
           dateI,
           "_",
-          node, "DF6",
+          node,
           ".csv"
         ), row.names=FALSE
       )
@@ -340,6 +382,7 @@ for (dateI in range_days) {
       #add serial number
       Data_sensit_5$Serial.number <- S_median_sd[1, 1]
       #revert wind back to ws and wd
+
       Data_sensit_5$wd <- atan2(-Data_sensit_5$u.wind, -Data_sensit_5$v.wind)*180/pi + 180
       Data_sensit_5$ws <- sqrt(Data_sensit_5$u.wind^2 + Data_sensit_5$v.wind^2)
 
@@ -457,34 +500,6 @@ saveRDS(complete_spod, file = "C:/Users/mmacdo01/OneDrive - Environmental Protec
 
 
 
-################################################################################################################# SECTION 3
-### make QA table for 5 min data
-
-## QA Code:
-# 0 = no events during this period
-# 1 = canister collected
-# 2 = calibration/cal check
-# 3 = deployment
-# 4 = maintenance
-# 5 = malfunction
-# 6 = wind obstruction
-
-spod_all$QA <- ifelse(spod_all$site == "S03" &
-                        spod_all$wd > 300 | spod_all$wd < 120, 6, 0)
-spod_all$QA <- ifelse(spod_all$site == "S01" &
-                        spod_all$day < "2022-11-01", 3, 0)
-spod_all$QA <- ifelse(spod_all$SN == "106" &
-                        spod_all$timeCut < "2022-06-30 19:45:00", 5, 0)
-spod_all$QA <- ifelse(spod_all$SN == "105" &
-                        spod_all$timeCut < "2022-07-11 11:35:00", 5, 0)
-spod_all$QA <- ifelse(spod_all$SN == "105" &
-                        spod_all$timeCut < "2022-07-21 09:17:00", 2, 0)
-spod_all$QA <- ifelse(spod_all$SN == "1262" &
-                        spod_all$timeCut < "2022-07-21 09:20:00", 2, 0)
-
-spod_qa <- spod_all[, c(1,2,29,32)]
-
-write.csv("GSTART_QA.csv", spod_qa)
 
 
 
