@@ -1,0 +1,70 @@
+---
+title: "SENTINEL Sensor Report "
+header-includes: \usepackage{float}
+output: 
+  pdf_document: 
+    fig_crop: no
+params:
+  plotBC:
+  plotWD:
+  plotCT:
+  WR:
+  SDI:
+  SN:
+  OutputDate:
+always_allow_html: true
+
+---
+
+```{r setup, include=FALSE}
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results= "asis"}
+# create leading lines of document
+a <- paste0("Sensor Unit: ", params$SN)
+e <- paste0("Output Date: ", params$OutputDate)
+i <- paste0("  ")
+cat(paste0(
+           a, '\n','\n',
+           e, '\n','\n',
+           i, '\n','\n'
+  ))
+
+```
+Wind Rose and Source Direction Indicator Plots
+```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE, fig.pos='H'}
+WR <- params$WR 
+SDI <- params$SDI
+
+WR
+SDI
+
+```
+Time Series Plots
+```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE, fig.pos='H'}
+# Baseline Correction and Signal 
+fig <- params$plotBC %>%  
+  layout(autosize = F, width = 1000, height = 500)
+tmpFile <- tempfile(fileext = ".png")
+export(fig, file = tmpFile)
+```
+
+```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE,fig.pos='H'}
+fig2 <- params$plotWD %>%  
+  layout(autosize = F,width = 1000, height = 500)
+tmpFile2 <- tempfile(fileext = ".png")
+export(fig2, file = tmpFile2)
+```
+
+```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE, fig.pos='H'}
+fig3 <- params$plotCT %>%  
+  layout(autosize = F, width = 1000, height = 500)
+tmpFile3 <- tempfile(fileext = ".png")
+export(fig3, file = tmpFile3)
+
+```
+
+
+
+

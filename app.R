@@ -8,7 +8,7 @@
 # M.K. MacDonald
 # macdonald.megan@epa.gov
 
-# Rev. 1.0: January 24 2023
+# Rev. 1.1: February 6 2023
 
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
@@ -23,7 +23,8 @@ require(leaflet)
 require(shinydashboard)  
 require(shinycssloaders)
 require(DT)  
-require(openair)  
+require(openair)
+library(lattice)
 require(plotly)  
 require(tidyverse)
 require(lubridate)  
@@ -38,18 +39,14 @@ library(rmarkdown)
 
 library(htmltools)
 require(devtools)  
-install_github("davidcarslaw/openairmaps")  
+#install_github("davidcarslaw/openairmaps")  
 require(openairmaps)  
 
 
 require(quantreg)  
 require(splines2)  
 require(splines)  
-# Load package - for "getBaseline" and related function
-# find_rtools()
-# source( #be sure to use "getbaseline" from this and not detrendr!
-#   "C:/Users/mmacdo01/OneDrive - Environmental Protection Agency (EPA)/G-START Project_QAPP ID_0033295-QP-1-0/R Code/Shiny app/getBaseline.R"  
-# )
+
 source("getBaseline.R")
 
 # code version
@@ -183,11 +180,11 @@ ui <- dashboardPage( ###################################################### buil
               fluidRow( ### Time Series plots box
                 tabBox(
                   title = "Time Series",side = "right",
-                  tabPanel("Baseline Fit", "Baseline Fit",
+                  tabPanel("Baseline Fit", "Baseline Fit: Raw signal trace (5 minute values) plotted in black with baseline fit (df = 4) plotted in red",
                            plotlyOutput("BCplot")),
-                  tabPanel("Wind Direction", "Wind Direction",
+                  tabPanel("Wind Direction", "Wind Direction: Baseline corrected signal trace plotted in black with wind direction plotted in orange (5 minute values)",
                            plotlyOutput("windplot")),
-                  tabPanel("Can Triggers", "Can Triggers",
+                  tabPanel("Can Triggers", "Canister Triggers: Baseline corrected signal trace plotted in black with canister triggers plotted as points, if collected during this time frame",
                            plotlyOutput("canplot")), width = 12
                 ), width = 12
               ),
@@ -196,6 +193,9 @@ ui <- dashboardPage( ###################################################### buil
       tabItem( ##################################################### build DATA TABLE page
         tabName = "DataTable", # make data table page
         h4("Table Results"),
+        br(),
+        downloadButton('Download',"Download .CSV data"),
+        br(),
         DTOutput(outputId = "datatab", width = 1000)
       ),
       
@@ -210,11 +210,18 @@ ui <- dashboardPage( ###################################################### buil
         fileInput("file1",
                   label= h4("Upload 10 second raw .CSV file here"),
                   multiple = FALSE),
-        textInput("singlenodestarttime", label = h4("Start Time input"), value = "2022-07-03 12:00:00"),  #, value = "2022-01-01 12:00:00"
-        textInput("singlenodeendtime", label = h4("End Time input"), value = "2022-07-03 12:59:59"),  #, value = "2022-01-01 12:59:59"
-        radioButtons("durationInput", h4("Select # of 10 second periods to QA: (6 = 1 min, 360 = 1 hour)"),
-                     choices = c("6", "360"),
-                     selected = "6"),
+        br(),
+        uiOutput("singlenodestarttime"),
+        uiOutput("singlenodeendtime"),
+        br(),
+        radioButtons("durationInput", h4("Select length of QA frame:"),
+                     choices = c("1 min" = 60, "1 hour" = 3600),
+                     selected = "1 min"),
+        radioButtons("freqfile", h4("Select Frequency of sensor values:"),
+                     choices = c("10 sec" = 10,
+                                 "30 sec" = 30,
+                                 "1 min" = 60),
+                     selected = "10 sec"),
         downloadButton("singlenodereport", "Generate pdf report"),
         box(plotOutput("draw_caltab"), width = 12)),
       tabItem(tabName = "multinode", ######################### build MULTI CALIBRATION page
@@ -231,33 +238,91 @@ ui <- dashboardPage( ###################################################### buil
               fileInput("file2multi",
                         label= h4("Upload 10 second processed .CSV file here"),
                         multiple = FALSE),
-              textInput("multinodestarttime", label = h4("Start Time input"), value = "2022-07-03 14:00:00"),
-              textInput("multinodeendtime" , label = h4("End Time input"), value = "2022-07-03 15:59:59"),
+              br(),
+              uiOutput("multinodestarttime"),
+              uiOutput("multinodeendtime"),
+              br(),
+              radioButtons("durationInput2", h4("Select length of QA frame:"),
+                           choices = c("1 min" = 60, "1 hour" = 3600),
+                           selected = "1 min"),
+              radioButtons("freqfile2", h4("Select Frequency of sensor values:"),
+                           choices = c("10 sec" = 10,
+                                       "30 sec" = 30,
+                                       "1 min" = 60),
+                           selected = "10 sec"),
               downloadButton("multinodereport", "Generate pdf report"),
               box(plotOutput("draw_subcaltab"), width = 12)
       ),
       tabItem( ####################################################### build ABOUT page
         tabName = "about",
-        fluidRow(
-          box( h3("Version 1.0 (September 2022)"),
-               br(),
-               h3("Megan MacDonald"),
-               br(),
-               h3("macdonald.megan@epa.gov"),
-               actionButton(inputId='ab1', label="APP USER GUIDE",
-                            onclick ="window.open('U R L     H E R E', '_blank')")),   ## megan add this as a pdf file ???
-          box(img(src = "pic2.jpg", height = 300, width = 350))
+        fluidRow( width = 12,
+          box( width = 12,
+          br(),
+          h4("Sensor Intelligent Emissions Locator (SENTINEL) is designed to compile, visualize, and analyze fenceline sensor data for users. The QA table functionality of this software is further explained in the Sensit SPod SOP (See link below). 
+             We awknowledge contributions from past and present contributors to this software: Halley Brantley, Yadong Xu, Wei Tang, and Gustavo Quieroz."),
+          br()
+          )
         ),
-        h3(" Web Resources:"),
-        actionButton(inputId='ab1', label="Learn More about reading SDI plots",
-                     onclick ="window.open('https://bookdown.org/david_carslaw/openair/', '_blank')"),
-        actionButton(inputId='ab1', label="Learn More about Sensit SPods",
-                     onclick ="window.open('https://gasleaksensors.com/products/sensit-spod-voc-emissions-air-pollutant-monitor/', '_blank')"),
-        h3(" EPA Resources:"),
-        actionButton(inputId='ab1', label="Fenceline Monitoring video",
-                     onclick ="window.open('https://www.youtube.com/watch?v=jUTQrVVTYNg', '_blank')"),
-        actionButton(inputId='ab1', label="Fenceline Sensors video",
-                     onclick ="window.open('https://www.youtube.com/watch?v=ACFm8-WhMRU', '_blank')")
+        fluidRow(
+          box( width = 6,
+               h3("Version 1.0 (February 2023)"),
+               br(),
+               h4("Contact:"),
+               h4("macdonald.megan@epa.gov"),
+               br(),
+               br()
+              ),  
+          box(width = 6,
+            actionButton("pdf", "SENTINEL User Guide", class = "btn-lg",),
+            br(),
+            br(),
+            actionButton("SOP", "Sensit SPod SOP", class = "btn-lg",),
+            br(),
+            br(),
+            actionButton(inputId='ab1', label="NGEM Website",class = "btn-lg",
+                         onclick ="window.open('https://www.epa.gov/air-research/next-generation-emission-measurement-ngem-research-fugitive-air-pollution', '_blank')")
+          )
+        ),
+
+        fluidRow(
+          box(width = 4,
+              h3("Technical Info:"),
+              actionButton(inputId='ab1', label="Reading SDI Plots",class = "btn-success", class = "btn-lg",
+                           onclick ="window.open('https://bookdown.org/david_carslaw/openair/', '_blank')"),
+              br(),
+              br(),
+              actionButton(inputId='ab1', label="Sensit SPods Manual",class = "btn-success", class = "btn-lg",
+                           onclick ="window.open('https://gasleaksensors.com/products/sensit-spod-voc-emissions-air-pollutant-monitor/', '_blank')"),
+              br(),
+              br(),
+              actionButton(inputId='ab1', label="Sensit Connect",class = "btn-success", class = "btn-lg",
+                           onclick ="window.open('https://sensitconnect.net/sessions/signin?return=%2Fdashboard', '_blank')"),), 
+          box(width = 4,
+              h3("Webinars:"),
+              actionButton(inputId='ab1', label="Seminar: NGEM Advancements ",class = "btn-info", class = "btn-lg",
+                           onclick ="window.open('https://www.youtube.com/watch?v=jUTQrVVTYNg', '_blank')"),
+              br(),
+              br(),
+              actionButton(inputId='ab1', label="Fenceline Sensors Comparison Study",class = "btn-info", class = "btn-lg",
+                           onclick ="window.open('https://www.youtube.com/watch?v=ACFm8-WhMRU', '_blank')"),
+              br(),
+              br(),
+              actionButton(inputId='ab1', label="SPods Tools and Resources Webinar",class = "btn-info", class = "btn-lg",
+                           onclick ="window.open('https://www.epa.gov/research-states/sensor-pods-volatile-organic-compound-fenceline-monitoring-and-data-analysis', '_blank')")), 
+          box(width = 4,
+              h3("Articles:"),
+              actionButton(inputId='ab1', label="NGEM Science Matters Article",class = "btn-primary", class = "btn-lg",
+                           onclick ="window.open('https://www.epa.gov/sciencematters/epa-researchers-develop-new-air-monitoring-technology-understand-leaks-and-irregular', '_blank')"),
+              br(),
+              br(),
+              actionButton(inputId='ab1', label="2019 Rubbertwon Study",class = "btn-primary", class = "btn-lg",
+                           onclick ="window.open('https://www.mdpi.com/1660-4601/16/11/2041', '_blank')"),
+              br(),
+              br(),
+              actionButton(inputId='ab1', label="2022 Rubbertwon Study",class = "btn-primary", class = "btn-lg",
+                           onclick ="window.open('https://www.mdpi.com/1424-8220/22/9/3480', '_blank')"))
+        )
+        
       )
     )
   )
@@ -380,12 +445,13 @@ server <- function(input, output, session) {
     selectInput("spodselect",h4("Select SPOD unit to display:"), choices = choice, selected = choice[1])
   })
   ######################################################## Date range selector
-  ### megan add this
+ ## megan add this.....
   ######################################################## Leaflet polar map
   output$polarmap <- renderLeaflet({
+    req(input$spodselect)
+    req(input$statselect)
     spodinput <- input$spodselect
     statinput <- input$statselect
-    
     req(spod_all_5min())
     spod_all_5 <- as.data.frame(spod_all_5min())
     spod_all_5_1 <- subset(spod_all_5,
@@ -405,28 +471,39 @@ server <- function(input, output, session) {
              key = TRUE,
              iconWidth = 350, iconHeight = 350,
              fig.width = 5, fig.height = 5,
-             par.settings=list(fontsize=list(text=25)))
+             par.settings=list(fontsize=list(text=18),
+                               add.line = list(col = "white"),
+                               axis.line = list(col = "white"),
+                               axis.text = list(col = 'white'),
+                               add.text = list(col = 'white'),
+                               layout.widths = list(left.padding = 3, right.padding = 0, axis.key.padding = 0)
+                               ))
   })
+  #str(trellis.par.get(), max.level = 1)
   ######################################################## SDI plots and Wind Roses
   output$FREQ <- renderPlot({
     req(spod_all_5min())
+    req(input$spodselect)
+    req(input$statselect)
     spod_all_5 <- as.data.frame(spod_all_5min())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
     statSDI <- input$statselectSDI
-    polarFreq(spod_all_5_1, pollutant = "bc.pid.ppb",fontsize = 20,
+    polarFreq(spod_all_5_1, pollutant = "bc.pid.ppb",fontsize = 18,
               statistic = statSDI, main = NULL, key.position = "right")
   })
   
   SDI_build <- reactive({# SDI plot
     req(spod_all_5min())
+    req(input$spodselect)
+    req(input$statselect)
     spod_all_5 <- as.data.frame(spod_all_5min())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
     statSDI <- input$statselectSDI
-    polarPlot(spod_all_5_1, pollutant = "bc.pid.ppb",  fontsize = 20,
+    polarPlot(spod_all_5_1, pollutant = "bc.pid.ppb",  fontsize = 18,
               statistic = statSDI, main = NULL, key.position = "right")
   })
   output$SDI <- renderPlot({
@@ -437,8 +514,9 @@ server <- function(input, output, session) {
     spod_all_5 <- as.data.frame(spod_all_5min())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect)
-    windRose(spod_all_5_1,  fontsize = 20, paddle = F,
-             main = NULL, key.position = "right")
+    windRose(spod_all_5_1,  fontsize = 18, paddle = F, cols = "hue",
+             main = NULL, key.position = "right",
+             par.settings=list(par.sub.text=list(cex=0.8)))
     
   })
   output$WR <- renderPlot({
@@ -475,8 +553,6 @@ server <- function(input, output, session) {
     BCplot_build()
   })
   
-  
-  
   WDplot_build <- reactive({    # Wind Direction plot
     req(spod_all_5min())
     spod_all_5 <- as.data.frame(spod_all_5min())
@@ -495,9 +571,8 @@ server <- function(input, output, session) {
         x = ~time,
         y = ~wd,
         type = "scatter", name = "Wind Direction",
-        mode = "markers",  showlegend = T, marker = list(color = "orange")) %>%
+        mode = "markers",  showlegend = T, marker = list(color = "green")) %>%
       layout(showlegend = T,
-             yaxis = list(title = "Wind Direction (Deg.)"),
              legend = list(
                orientation = "h",
                x = 0.3,
@@ -509,7 +584,7 @@ server <- function(input, output, session) {
     w <- w %>% layout(
       yaxis2 = ay,
       xaxis = list(title="Date"),
-      yaxis = list(title="Wind Direction (Deg.)"),
+      yaxis = list(title= list(text = "Wind Direction (Deg.)", font = list(color = 'darkgreen')), tickfont = list(color = 'darkgreen')),
       margin = list(l = 50, t = 50, b =50, r = 100, pad = 20))
     w
   })
@@ -517,7 +592,6 @@ server <- function(input, output, session) {
   output$windplot <- renderPlotly({
     WDplot_build()
   })
-  
   
   CTplot_build <- reactive({
     req(spod_all_5min())
@@ -545,7 +619,8 @@ server <- function(input, output, session) {
         type = "scatter", name = "port1",
         mode = "markers",  showlegend = T, marker = list(color = "darkgreen", size = 10, opacity = 0.8)) %>%
       layout(showlegend = T,
-             yaxis = list(title = " ", range = c(-4,6), tickfont = list(color = "white")),
+             yaxis = list(title = " ", range = c(-4,6), tickfont = list(color = "white"),
+                          zeroline = FALSE),
              legend = list(
                orientation = "h",
                x = 0.3,
@@ -588,10 +663,10 @@ server <- function(input, output, session) {
   
   ####################################################### Report Output Option
   output$report_button <- downloadHandler( # calls Sentinel_Report.RMD to build doc
-    filename = "report.pdf",
+    filename = "Sentinel_Report.pdf",
     content = function(file) {
-      render(input = "Sentinel_Report.Rmd", output_dir = dirname(file),
-             output_file = basename(file), params = list(plotBC = BCplot_build(),
+      render(input = "Sentinel_Report.Rmd",
+             output_file = "Report.pdf", params = list(plotBC = BCplot_build(),
                                                          plotWD = WDplot_build(),
                                                          plotCT = CTplot_build(),
                                                          WR = WR_build(),
@@ -601,6 +676,9 @@ server <- function(input, output, session) {
     }
   )
   
+  #   output_dir = dirname(file),output_file = basename(file),
+  
+  
   
   ######################################################### SINGLE CALIBRATION PAGE
   getcaldata <- reactive({
@@ -608,8 +686,10 @@ server <- function(input, output, session) {
     req(input$singlenodeendtime)
     req(input$durationInput)
     req(input$file1)
-    duration <- input$durationInput
-    duration_sec <- as.numeric(duration)
+    req(input$freqfile)
+    duration <- as.numeric(input$durationInput)
+    frequency_sec <- as.numeric(input$freqfile)
+    
     start_time <- as.POSIXct(input$singlenodestarttime, tz = "America/New_York")
     end_time <- as.POSIXct(input$singlenodeendtime, tz = "America/New_York")
     
@@ -623,17 +703,26 @@ server <- function(input, output, session) {
       {
         Data_sensit <- fread(input$file1[[i, 'datapath']], select = c(2:21), skip = 2, fill = TRUE)
         Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S", tz = "America/New_York")
+        # Check for lat and long
+        if(!'lat' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(lat = NA)
+        if(!'long' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(long = NA)
         #remove baseline #######
         Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 4))
         # Calc u wind and v wind
         Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
         Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
+       
+        print(colnames(Data_sensit))
       }
     }
     filtered0 <-
       Data_sensit %>%
       filter(timestamp >= start_time &  timestamp <= end_time)
-    filtered <- filtered0[,c(2,22,4:14, 16)] #change to filtered version
+    #vectorize wind direction to avoid rounding errors between 0 and 360
+    Data_sensit_5$wd <- atan2(-Data_sensit_5$u.wind, -Data_sensit_5$v.wind)*180/pi + 180
+    
+    
+    filtered <- filtered0[,c(2,22,4:7, 25, 9:14, 16)] #change to filtered version
     #no exponent notation
     options(scipen=999)
     #fix trig flag cols
@@ -645,7 +734,7 @@ server <- function(input, output, session) {
     Min <- lapply(filtered, min)
     Max <- lapply(filtered, max)
     N <- lapply(filtered,function(x) sum(!is.na(x)))
-    DataComp <- lapply(filtered,function(x) (sum(!is.na(x))/duration_sec)*100)
+    DataComp <- lapply(filtered,function(x) (sum(!is.na(x))/(duration/frequency_sec))*100)
     #Round vals for table
     Mean <- round(as.numeric(Mean), 1)
     Median <- round(as.numeric(Median), 1)
@@ -657,6 +746,29 @@ server <- function(input, output, session) {
     rownames(xx) <-  c("RawPIDppb", "BCPIDppb","Tempdegc","RH", "Pressure","WS","WD","S1temp","S1Heat",
                        "S1Setarb","BatvoltV","ChargeCurrentmA","OperateCurrentmA","TrigActiveStat")
     xx
+  })
+  
+  singlenodetimestampstart <- reactive({
+    req(input$file1)
+    a <- input$file1$name
+    dateval <- str_match(a, "_20\\s*(.*?)\\s*.csv")
+    ID <- dateval[,2]
+    singlenodetimestampstart <- as.character(paste0("20", ID, " 01:00:00"))
+  })
+  output$singlenodestarttime <- renderUI({
+    textInput(inputId = "singlenodestarttime", label = "Start Time:", value = singlenodetimestampstart())
+  })
+  
+  singlenodetimestampend <- reactive({
+    req(input$file1)
+    a <- input$file1$name
+    dateval <- str_match(a, "_20\\s*(.*?)\\s*.csv")
+    ID <- dateval[,2]
+    singlenodetimestampend <- as.character(paste0("20", ID, " 02:00:00"))
+    
+  })
+  output$singlenodeendtime <- renderUI({
+    textInput(inputId = "singlenodeendtime", label = "End Time:", value = singlenodetimestampend())
   })
   
   output$draw_caltab <- renderPlot({ # create output for app
@@ -778,6 +890,9 @@ server <- function(input, output, session) {
     req(input$multinodestarttime)
     req(input$multinodeendtime)
     req(input$file1multi)
+    duration_sec <- as.numeric(input$durationInput2)
+    frequency_sec <- as.numeric(input$freqfile2)
+    
     start_time <- as.POSIXct(input$multinodestarttime, tz = "America/New_York")
     end_time <- as.POSIXct(input$multinodeendtime, tz = "America/New_York")
     inFile <- input$file1multi
@@ -800,7 +915,7 @@ server <- function(input, output, session) {
     
     filtered0 <-
       Data_sensit %>%
-      filter(timestamp >= start_time &  timestamp <= end_time)
+      filter(timestamp >= start_time &  timestamp <= end_time)#### megan vectorize wind here~!!!!
     filtered <- filtered0[,c(2,22,4:14, 16)] #change to filtered version
     #no exponent notation
     options(scipen=999)
@@ -813,7 +928,7 @@ server <- function(input, output, session) {
     Min <- lapply(filtered, min)
     Max <- lapply(filtered, max)
     N <- lapply(filtered,function(x) sum(!is.na(x)))
-    DataComp <- lapply(filtered,function(x) (sum(!is.na(x))/360)*100)
+    DataComp <- lapply(filtered,function(x) (sum(!is.na(x))/(duration_sec/frequency_sec))*100)
     #Round vals for table
     Mean <- round(as.numeric(Mean), 1)
     Median <- round(as.numeric(Median), 1)
@@ -826,13 +941,38 @@ server <- function(input, output, session) {
                        "S1Setarb","BatvoltV","ChargeCurrentmA","OperateCurrentmA","TrigActiveStat")
     xx
   })
+ 
+  multinodetimestampstart <- reactive({
+    req(input$file1multi)
+    a <- input$file1multi$name
+    dateval <- str_match(a, "_20\\s*(.*?)\\s*.csv")
+    ID <- dateval[,2]
+    multinodetimestampstart <- as.character(paste0("20", ID, " 01:00:00"))
+  })
+  output$multinodestarttime <- renderUI({
+    textInput(inputId = "multinodestarttime", label = "Start Time:", value = multinodetimestampstart())
+  })
   
-  
+  multinodetimestampend <- reactive({
+    req(input$file1multi)
+    a <- input$file1multi$name
+    dateval <- str_match(a, "_20\\s*(.*?)\\s*.csv")
+    ID <- dateval[,2]
+    multinodetimestampend <- as.character(paste0("20", ID, " 02:00:00"))
+    
+  })
+  output$multinodeendtime <- renderUI({
+    textInput(inputId = "multinodeendtime", label = "End Time:", value = multinodetimestampend())
+  })
   # make table for node 2 input
   getcaldata2 <- reactive({
     req(input$multinodestarttime)
     req(input$multinodeendtime)
     req(input$file2multi)
+    req(input$durationInput2) 
+    req(input$freqfile2)
+    duration_sec <- as.numeric(input$durationInput2)
+    frequency_sec <- as.numeric(input$freqfile2)
     start_time <- as.POSIXct(input$multinodestarttime, tz = "America/New_York")
     end_time <- as.POSIXct(input$multinodeendtime, tz = "America/New_York")
     inFile <- input$file2multi
@@ -855,7 +995,7 @@ server <- function(input, output, session) {
     
     filtered0 <-
       Data_sensit %>%
-      filter(timestamp >= start_time &  timestamp <= end_time)
+      filter(timestamp >= start_time &  timestamp <= end_time)   #### megan vectorize wind here~!!!!
     filtered <- filtered0[,c(2,22,4:14, 16)] #change to filtered version
     #no exponent notation
     options(scipen=999)
@@ -868,7 +1008,7 @@ server <- function(input, output, session) {
     Min <- lapply(filtered, min)
     Max <- lapply(filtered, max)
     N <- lapply(filtered,function(x) sum(!is.na(x)))
-    DataComp <- lapply(filtered,function(x) (sum(!is.na(x))/360)*100)
+    DataComp <- lapply(filtered,function(x) (sum(!is.na(x))/(duration_sec/frequency_sec))*100)
     #Round vals for table
     Mean <- round(as.numeric(Mean), 1)
     Median <- round(as.numeric(Median), 1)
@@ -1007,7 +1147,28 @@ server <- function(input, output, session) {
                   options = list(scrollX = TRUE)) %>% formatDate(2, "toLocaleString")
   })
   
-  #########################################################
+  output$Download <-
+    downloadHandler(
+      filename = function () {
+        paste("SENTINELData.csv", sep = "")
+      },
+      content = function(file) {
+        write.csv(spod_all_5min(), file)
+      }
+    )
+  
+  
+  ######################################################### about output
+  observeEvent(input$pdf, {
+    file.show("SENTINEL Shiny App User Guide V1.pdf")
+  })
+  observeEvent(input$SOP, {
+    file.show("J-AMCD-SFSB-SOP-4380-2_Sensit SPod SOP.pdf")
+  })
+  
+  
+  
+  
   
 }
 
