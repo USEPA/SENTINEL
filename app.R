@@ -665,14 +665,29 @@ server <- function(input, output, session) {
   output$report_button <- downloadHandler( # calls Sentinel_Report.RMD to build doc
     filename = "Sentinel_Report.pdf",
     content = function(file) {
-      render(input = "Sentinel_Report.Rmd",
-             output_file = "Report.pdf", params = list(plotBC = BCplot_build(),
-                                                         plotWD = WDplot_build(),
-                                                         plotCT = CTplot_build(),
-                                                         WR = WR_build(),
-                                                         SDI = SDI_build(),
-                                                         SN = input$spodselect,
-                                                         OutputDate = Sys.Date()))
+      # render(input = "Sentinel_Report.Rmd",
+      #        output_file = "Report.pdf", params = list(plotBC = BCplot_build(),
+      #                                                    plotWD = WDplot_build(),
+      #                                                    plotCT = CTplot_build(),
+      #                                                    WR = WR_build(),
+      #                                                    SDI = SDI_build(),
+      #                                                    SN = input$spodselect,
+      #                                                    OutputDate = Sys.Date()))
+      
+        tempReport <- file.path(tempdir(), "Sentinel_Report.Rmd")
+        file.copy("Sentinel_Report.Rmd", tempReport, overwrite = TRUE)
+        params <- list(plotBC = BCplot_build(),
+                       plotWD = WDplot_build(),
+                       plotCT = CTplot_build(),
+                       WR = WR_build(),
+                       SDI = SDI_build(),
+                       SN = input$spodselect,
+                       OutputDate = Sys.Date())
+        rmarkdown::render(tempReport, output_file = file,
+                          params = params,
+                          envir = new.env(parent = globalenv())
+        )
+      
     }
   )
   
@@ -712,16 +727,13 @@ server <- function(input, output, session) {
         Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
         Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
        
-        print(colnames(Data_sensit))
       }
     }
     filtered0 <-
       Data_sensit %>%
       filter(timestamp >= start_time &  timestamp <= end_time)
     #vectorize wind direction to avoid rounding errors between 0 and 360
-    Data_sensit_5$wd <- atan2(-Data_sensit_5$u.wind, -Data_sensit_5$v.wind)*180/pi + 180
-    
-    
+    filtered0$wd <- atan2(-1 *filtered0$u, -1 *filtered0$v)*180/pi + 180
     filtered <- filtered0[,c(2,22,4:7, 25, 9:14, 16)] #change to filtered version
     #no exponent notation
     options(scipen=999)
@@ -915,8 +927,10 @@ server <- function(input, output, session) {
     
     filtered0 <-
       Data_sensit %>%
-      filter(timestamp >= start_time &  timestamp <= end_time)#### megan vectorize wind here~!!!!
-    filtered <- filtered0[,c(2,22,4:14, 16)] #change to filtered version
+      filter(timestamp >= start_time &  timestamp <= end_time)
+    #vectorize wind direction to avoid rounding errors between 0 and 360
+    filtered0$wd <- atan2(-1 *filtered0$u, -1 *filtered0$v)*180/pi + 180
+    filtered <- filtered0[,c(2,22,4:7, 25, 9:14, 16)] #change to filtered version
     #no exponent notation
     options(scipen=999)
     #fix trig flag cols
@@ -995,8 +1009,10 @@ server <- function(input, output, session) {
     
     filtered0 <-
       Data_sensit %>%
-      filter(timestamp >= start_time &  timestamp <= end_time)   #### megan vectorize wind here~!!!!
-    filtered <- filtered0[,c(2,22,4:14, 16)] #change to filtered version
+      filter(timestamp >= start_time &  timestamp <= end_time)
+    #vectorize wind direction to avoid rounding errors between 0 and 360
+    filtered0$wd <- atan2(-1 *filtered0$u, -1 *filtered0$v)*180/pi + 180
+    filtered <- filtered0[,c(2,22,4:7, 25, 9:14, 16)] #change to filtered version
     #no exponent notation
     options(scipen=999)
     #fix trig flag cols
