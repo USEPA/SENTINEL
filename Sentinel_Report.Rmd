@@ -2,18 +2,20 @@
 title: "SENTINEL Sensor Report "
 header-includes: \usepackage{float}
 output: 
-  pdf_document: 
+  html_document: 
     fig_crop: no
 params:
   plotBC:
   plotWD:
   plotCT:
+  plotRH:
+  plotT:
+  plotCAL:
   WR:
   SDI:
   SN:
   OutputDate:
 always_allow_html: true
-
 ---
 
 ```{r setup, include=FALSE}
@@ -32,7 +34,9 @@ cat(paste0(
   ))
 
 ```
+
 Wind Rose and Source Direction Indicator Plots
+
 ```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE, fig.pos='H'}
 WR <- params$WR 
 SDI <- params$SDI
@@ -41,7 +45,11 @@ WR
 SDI
 
 ```
+
 Time Series Plots
+
+##### Baseline Corrected Signal 
+
 ```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE, fig.pos='H'}
 # Baseline Correction and Signal 
 fig <- params$plotBC %>%  
@@ -50,12 +58,16 @@ tmpFile <- tempfile(fileext = ".png")
 export(fig, file = tmpFile)
 ```
 
+##### Wind Direction & Signal 
+
 ```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE,fig.pos='H'}
 fig2 <- params$plotWD %>%  
   layout(autosize = F,width = 1000, height = 500)
 tmpFile2 <- tempfile(fileext = ".png")
 export(fig2, file = tmpFile2)
 ```
+
+##### Canister Triggers & Signal 
 
 ```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE, fig.pos='H'}
 fig3 <- params$plotCT %>%  
@@ -65,6 +77,32 @@ export(fig3, file = tmpFile3)
 
 ```
 
+##### Relative Humidity & Signal 
 
+```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE, fig.pos='H'}
+fig3 <- params$plotRH %>%  
+  layout(autosize = F, width = 1000, height = 500)
+tmpFile3 <- tempfile(fileext = ".png")
+export(fig3, file = tmpFile3)
 
+```
 
+##### Temperature & Signal 
+
+```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE, fig.pos='H'}
+fig3 <- params$plotT %>%  
+  layout(autosize = F, width = 1000, height = 500)
+tmpFile3 <- tempfile(fileext = ".png")
+export(fig3, file = tmpFile3)
+
+```
+
+##### Calibrations & Signal 
+
+```{r, fig.height=4, fig.width=9, out.height="100%", out.width="100%", echo=FALSE, error=FALSE, warning=FALSE, message = FALSE, fig.pos='H'}
+fig3 <- params$plotCAL %>%  
+  layout(autosize = F, width = 1000, height = 500)
+tmpFile3 <- tempfile(fileext = ".png")
+export(fig3, file = tmpFile3)
+
+```
