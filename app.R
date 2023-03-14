@@ -124,13 +124,13 @@ ui <- dashboardPage( ###################################################### buil
                  Make edits in the table below using the dropdown menu for the QA column and typing the value into the box below to add offsets to teh wind direction column (flag 7). 
                  Download the .csv file and read it in along with other downloaded Sensit Connect files to bring the QA edits into the SENTINEL.
                  Add the following flags in the QA column to designate specified times periods to be ignored in future anaylsis of this data file. "),
-              h5("1: Calibration"),
-              h5("2: Interferance"),
-              h5("3: Maintenance"),
-              h5("4: Malfunction"),
-              h5("5: Other"),
-              h5("6: Wind Direction Interferance (use for blocked wind directions) *Sort by wind direction"),
-              h5("7: Wind Direction Error (use for misaligned anemometer): Use text input box below:"),
+              h5("100: Calibration"),
+              h5("102: Interferance"),
+              h5("103: Maintenance"),
+              h5("104: Malfunction"),
+              h5("105: Other"),
+              h5("106: Wind Direction Interference (use for blocked wind directions) *Sort by wind direction"),
+              h5("107: Wind Direction Error (use for misaligned anemometer): Use text input box below:"),
               textInput("winddircalc",  "Enter addition to WD (deg.)", value = 0),
               h5("Note: changing the wind calc will reset QA flags, do this first."),
               br(),
@@ -434,7 +434,7 @@ server <- function(input, output, session) {
     spod_all_QA_static$time <- as.character(spod_all_QA_static$time)
     spod_all_QA_static$`Local Date Time` <- as.character(spod_all_QA_static$`Local Date Time`)
     
-    flags <- c(0,1,2,3,4,5,6,7)
+    flags <- c(0,100,102,103,104,105,106,107)
     rhandsontable(spod_all_QA_static, width = 850, height = 550)%>%
       hot_col(col = "QA", type = "dropdown", source = flags)%>%
       hot_col(col = "ws_direction", type = "autocomplete")%>%
@@ -469,28 +469,28 @@ server <- function(input, output, session) {
         ##################### Complete quick Auto QA scan
         ##### look for QA col, if not there, add it
         if(!'QA' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(QA = 0)
-        # check for missing data
-        Data_sensit$QA <- ifelse(is.na(Data_sensit$pid1_PPB_Calc),8,Data_sensit$QA ) # flag 8
         # check for very negative PID
-        Data_sensit$QA <- ifelse(Data_sensit$pid1_PPB_Calc < -100,9,Data_sensit$QA ) # flag 9
+        Data_sensit$QA <- ifelse(Data_sensit$pid1_PPB_Calc < -100,108,Data_sensit$QA ) # flag 8
         # check for very high PID
-        Data_sensit$QA <- ifelse(Data_sensit$pid1_PPB_Calc > 5000,20,Data_sensit$QA ) # flag 10
+        Data_sensit$QA <- ifelse(Data_sensit$pid1_PPB_Calc > 5000,109,Data_sensit$QA ) # flag 9
         # check for repeated wind/PID vals
         Data_sensit$QA <- ifelse(rep(rle(Data_sensit$ws_speed)$lengths,
-                                     times = rle(Data_sensit$ws_speed)$lengths) * sign(Data_sensit$ws_speed) > 30, 21, Data_sensit$QA ) # flag 11
+                                     times = rle(Data_sensit$ws_speed)$lengths) * sign(Data_sensit$ws_speed) > 30, 110, Data_sensit$QA ) # flag 10
         Data_sensit$QA <- ifelse(rep(rle(Data_sensit$ws_direction)$lengths,
-                                     times = rle(Data_sensit$ws_direction)$lengths) * sign(Data_sensit$ws_direction) > 30, 22, Data_sensit$QA ) # flag 12
+                                     times = rle(Data_sensit$ws_direction)$lengths) * sign(Data_sensit$ws_direction) > 30, 111, Data_sensit$QA ) # flag 11
         Data_sensit$QA <- ifelse(rep(rle(Data_sensit$pid1_PPB_Calc)$lengths,
-                                     times = rle(Data_sensit$pid1_PPB_Calc)$lengths) * sign(Data_sensit$ws_direction) > 30, 23, Data_sensit$QA ) # flag 13
+                                     times = rle(Data_sensit$pid1_PPB_Calc)$lengths) * sign(Data_sensit$ws_direction) > 30, 112, Data_sensit$QA ) # flag 12
         # check for illogical wind vals
-        Data_sensit$QA <- ifelse(Data_sensit$ws_speed > 12,24,Data_sensit$QA ) # flag 14
-        Data_sensit$QA <- ifelse(Data_sensit$ws_direction > 360 | Data_sensit$ws_direction < 0,25,Data_sensit$QA ) # flag 15
+        Data_sensit$QA <- ifelse(Data_sensit$ws_speed > 12,113,Data_sensit$QA ) # flag 13
+        Data_sensit$QA <- ifelse(Data_sensit$ws_direction > 360 | Data_sensit$ws_direction < 0,114,Data_sensit$QA ) # flag 14
         # check for high humidity swings w/ extra pid col so original values dont change
         Data_sensit$pid <- Data_sensit$pid1_PPB_Calc
         Data_sensit$pid <- screenRH(Data_sensit$pid1_PPB_Calc, Data_sensit$time, Data_sensit$rh_Humd)
-        Data_sensit$QA <- ifelse(is.na(Data_sensit$pid) == TRUE, 26, Data_sensit$QA) # flag 16
+        Data_sensit$QA <- ifelse(is.na(Data_sensit$pid) == TRUE, 115, Data_sensit$QA) # flag 15
         # check for high temp swings ??
         # check file size? test for data output rate (flag if not 10 sec or 30 sec - make switch in app for this )
+        # check for missing data
+        # Data_sensit$QA <- ifelse(is.na(Data_sensit$pid1_PPB_Calc),108,Data_sensit$QA ) # flag x
         ######################## end of AutoQA Flagging
         #remove baseline #######
         Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$time, df = 4))
@@ -865,14 +865,14 @@ server <- function(input, output, session) {
     Tplot_build()
   })
   
-  CALplot_build <- reactive({
+  CALplot_build <- reactive({ # calibration plot
     req(spod_all_5min())
     spod_all_5 <- as.data.frame(spod_all_5min())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect )
     
     spod_all_5_1$QA <- as.character(spod_all_5_1$QA)
-    spod_all_5_1$Calibration <- ifelse(grepl("0, 1", spod_all_5_1$QA), 1, NA)   ###################################################### fix
+    spod_all_5_1$Calibration <- ifelse(grepl("100", spod_all_5_1$QA), 1, NA)   ###################################################### fix
     
     
     ay <- list(
@@ -917,7 +917,7 @@ server <- function(input, output, session) {
   
   ####################################################### Report Output Option
   output$report_button <- downloadHandler( # calls Sentinel_Report.RMD to build doc
-    filename = "Sentinel_Report.html",
+    filename = "Sentinel_Report.Rmd",
     content = function(file) {
       # render(input = "Sentinel_Report.Rmd",
       #        output_file = "Report.pdf", params = list(plotBC = BCplot_build(),
@@ -928,7 +928,7 @@ server <- function(input, output, session) {
       #                                                    SN = input$spodselect,
       #                                                    OutputDate = Sys.Date()))
       
-        tempReport <- file.path(tempdir(), "Sentinel_Report.Rmd")
+         tempReport <- file.path(tempdir(), "Sentinel_Report.Rmd")
         file.copy("Sentinel_Report.Rmd", tempReport, overwrite = TRUE)
         params <- list(plotBC = BCplot_build(),
                        plotWD = WDplot_build(),
@@ -941,19 +941,18 @@ server <- function(input, output, session) {
                        SN = input$spodselect,
                        OutputDate = Sys.Date())
         rmarkdown::render(tempReport, output_file = file,
-                          params = params,
+                          params = params,output_format = "html_document",
                           envir = new.env(parent = globalenv())
         )
       
     }
   )
   
-  #   output_dir = dirname(file),output_file = basename(file),
+
   
   
-  
-  ######################################################### SINGLE CALIBRATION PAGE
-  getcaldata <- reactive({
+  ######################################################### SINGLE CALIBRATION PAGE    #################### editing here
+  getsinglefiledata <- reactive({ # read in file, make base dataset
     req(input$singlenodestarttime)
     req(input$singlenodeendtime)
     req(input$durationInput)
@@ -973,11 +972,8 @@ server <- function(input, output, session) {
       filelist_10 = list()
       for (i in 1:numfiles)
       {
-        Data_sensit <- fread(input$file1[[i, 'datapath']], select = c(2:21), skip = 2, fill = TRUE)
+        Data_sensit <- fread(input$file1[[i, 'datapath']], select = c(2:19), skip = 2, fill = TRUE)
         Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S", tz = "America/New_York")
-        # Check for lat and long
-        if(!'lat' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(lat = NA)
-        if(!'long' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(long = NA)
         #remove baseline #######
         Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 4))
         # Calc u wind and v wind
@@ -986,16 +982,30 @@ server <- function(input, output, session) {
        
       }
     }
+    Data_sensit
+  })
+  
+  getcaldata <- reactive({ # make data for QA table, from base dataset
+    req(input$singlenodestarttime)
+    req(input$singlenodeendtime)
+    req(input$durationInput)
+    req(input$freqfile)
+    duration <- as.numeric(input$durationInput)
+    frequency_sec <- as.numeric(input$freqfile)
+    start_time <- as.POSIXct(input$singlenodestarttime, tz = "America/New_York")
+    end_time <- as.POSIXct(input$singlenodeendtime, tz = "America/New_York")
+    req(getsinglefiledata())
+    
+    Data_sensit <- getsinglefiledata()
     filtered0 <-
       Data_sensit %>%
       filter(timestamp >= start_time &  timestamp <= end_time)
     #vectorize wind direction to avoid rounding errors between 0 and 360
     filtered0$wd <- atan2(-1 *filtered0$u, -1 *filtered0$v)*180/pi + 180
-    filtered <- filtered0[,c(2,22,4:7, 25, 9:14, 16)] #change to filtered version
+    filtered <- filtered0[,c(2,20,3:7, 23, 9:14)] #change to filtered version
     #no exponent notation
     options(scipen=999)
     #fix trig flag cols
-    filtered$trig.trig_value[is.na(filtered$trig.trig_value)] <- 0
     # build QA df for output file
     Mean <- lapply(filtered, mean)
     Median <- lapply(filtered, median)
@@ -1011,13 +1021,15 @@ server <- function(input, output, session) {
     Min <- round(as.numeric(Min), 1)
     Max <- round(as.numeric(Max), 1)
     DataComp <- round(as.numeric(DataComp), 1)
-    xx <- cbind(Mean, Median, StdDev, Min, Max, DataComp)
-    rownames(xx) <-  c("RawPIDppb", "BCPIDppb","Tempdegc","RH", "Pressure","WS","WD","S1temp","S1Heat",
-                       "S1Setarb","BatvoltV","ChargeCurrentmA","OperateCurrentmA","TrigActiveStat")
+    Units <- c("ppb", "ppb", "mV", "Deg C", "%", "mBar","mph","deg.", "arb.",  "0-255", "arb.", "volt", "mA", "mA")
+    xx <- cbind(Units, Mean, Median, StdDev, Min, Max, DataComp)
+    rownames(xx) <-  c("RawPIDppb", "BCPIDppb","RawPIDMv", "Temp","RH", "Pressure","WS","WD","S1temp","S1Heat",
+                       "S1Set","BatvoltV","ChargeCurrentmA","OperateCurrentmA")
     xx
+    print(xx)
   })
   
-  singlenodetimestampstart <- reactive({
+  singlenodetimestampstart <- reactive({ # create start time
     req(input$file1)
     a <- input$file1$name
     dateval <- str_match(a, "_20\\s*(.*?)\\s*.csv")
@@ -1028,7 +1040,7 @@ server <- function(input, output, session) {
     textInput(inputId = "singlenodestarttime", label = "Start Time:", value = singlenodetimestampstart())
   })
   
-  singlenodetimestampend <- reactive({
+  singlenodetimestampend <- reactive({ # create end time
     req(input$file1)
     a <- input$file1$name
     dateval <- str_match(a, "_20\\s*(.*?)\\s*.csv")
@@ -1049,7 +1061,7 @@ server <- function(input, output, session) {
       tab_add_title(text = " ", face = "bold", padding = unit(0.2, "line"))
   })
   
-  draw_caltab <- function(){ # create output for RMD
+  draw_caltab <- function(){ # create output for RMD   ############################################################## editing here !!!!
     req(getcaldata())
     req(input$singlenodestarttime)
     req(input$singlenodeendtime)
@@ -1057,28 +1069,70 @@ server <- function(input, output, session) {
     end_time <- as.POSIXct(input$singlenodeendtime, tz = "America/New_York")
     xx <- getcaldata()
     xx <- as.data.frame(xx)
-    # xx$Mean[1] = cell_spec(xx$Mean[1], color = ifelse(xx$Mean[1] < 200, "black", "red"))
-    # xx$Mean[3] = cell_spec(xx$Mean[3], color = ifelse(xx$Mean[3] > -10, "black", "red"))
-    # # xx$StdDev[1] = cell_spec(xx$StdDev[1], color = ifelse(xx$StdDev[1] < 20 | xx$StdDev[1] == "NA", "black", "red"))
-    # # xx$StdDev[2] = cell_spec(xx$StdDev[2], color = ifelse(xx$StdDev[2] < 30 | xx$StdDev[1] == "NA", "black", "red"))
-    # # xx$StdDev[3] = cell_spec(xx$StdDev[3], color = ifelse(xx$StdDev[3] > 5 | xx$StdDev[1] == "NA" , "red", "black"))
-    # # xx$StdDev[4] = cell_spec(xx$StdDev[4], color = ifelse(xx$StdDev[4] > 5 | xx$StdDev[1] == "NA" , "red", "black"))
-    # xx$Min[1] = cell_spec(xx$Min[1], color = ifelse(xx$Min[1] > 5 , "red", "black"))
-    # xx$Min[2] = cell_spec(xx$Min[2], color = ifelse(xx$Min[2] > 10 , "red", "black"))
-    # xx$Min[3] = cell_spec(xx$Min[3], color = ifelse(xx$Min[3] < -2 , "red", "black"))
-    # xx$Min[4] = cell_spec(xx$Min[4], color = ifelse(xx$Min[4] < -2 , "red", "black"))
-    # xx$Max[1] = cell_spec(xx$Max[1], color = ifelse(xx$Max[1] > 200 , "red", "black"))
-    # xx$Max[2] = cell_spec(xx$Max[2], color = ifelse(xx$Max[2] > 400 , "red", "black"))
-    # xx$Max[3] = cell_spec(xx$Max[3], color = ifelse(xx$Max[3] > 200 , "red", "black"))
-    # xx$Max[4] = cell_spec(xx$Max[4], color = ifelse(xx$Max[4] > 400 , "red", "black"))
-    # xx$DataComp = cell_spec(xx$DataComp, color = ifelse(xx$DataComp != 100 , "red", "black"))
-    
-    xx <- xx[c("Mean","Median","StdDev", "Min", "Max","DataComp")]
+   
+    xx[1,5] = cell_spec(xx[1,5], color = ifelse(as.numeric(xx[1,5]) < -200 , "red", "black"))
+    xx[2,5] = cell_spec(xx[2,5], color = ifelse(as.numeric(xx[2,5]) < -200 , "red", "black"))
+    xx[3,5] = cell_spec(xx[3,5], color = ifelse(as.numeric(xx[3,5]) < -300 , "red", "black"))
+    xx[4,5] = cell_spec(xx[4,5], color = ifelse(as.numeric(xx[4,5]) < -25 , "red", "black"))
+    xx[5,5] = cell_spec(xx[5,5], color = ifelse(as.numeric(xx[5,5]) < 10 , "red", "black"))
+    xx[6,5] = cell_spec(xx[6,5], color = ifelse(as.numeric(xx[6,5]) < 800 , "red", "black"))
+    xx[7,5] = cell_spec(xx[7,5], color = ifelse(as.numeric(xx[7,5]) < 0 , "red", "black"))
+    xx[8,5] = cell_spec(xx[8,5], color = ifelse(as.numeric(xx[8,5]) < 0 , "red", "black"))
+    xx[9,5] = cell_spec(xx[9,5], color = ifelse(as.numeric(xx[9,5]) < 500 , "red", "black"))
+    xx[10,5] = cell_spec(xx[10,5], color = ifelse(as.numeric(xx[10,5]) < 0 , "red", "black"))
+    xx[11,5] = cell_spec(xx[11,5], color = ifelse(as.numeric(xx[11,5]) < 500 , "red", "black"))
+    xx[12,5] = cell_spec(xx[12,5], color = ifelse(as.numeric(xx[12,5]) < 10 , "red", "black"))
+    xx[13,5] = cell_spec(xx[13,5], color = ifelse(as.numeric(xx[13,5]) < 0 , "red", "black"))
+    xx[14,5] = cell_spec(xx[14,5], color = ifelse(as.numeric(xx[14,5]) < 50 , "red", "black"))
+
+    xx[1,6] = cell_spec(xx[1,6], color = ifelse(as.numeric(xx[1,6]) > 5000 , "red", "black"))
+    xx[2,6] = cell_spec(xx[2,6], color = ifelse(as.numeric(xx[2,6]) > 5000 , "red", "black"))
+    xx[3,6] = cell_spec(xx[3,6], color = ifelse(as.numeric(xx[3,6]) > 10000 , "red", "black"))
+    xx[4,6] = cell_spec(xx[4,6], color = ifelse(as.numeric(xx[4,6]) > 50 , "red", "black"))
+    xx[5,6] = cell_spec(xx[5,6], color = ifelse(as.numeric(xx[5,6]) > 100 , "red", "black"))
+    xx[6,6] = cell_spec(xx[6,6], color = ifelse(as.numeric(xx[6,6]) > 1020 , "red", "black"))
+    xx[7,6] = cell_spec(xx[7,6], color = ifelse(as.numeric(xx[7,6]) > 12 , "red", "black"))
+    xx[8,6] = cell_spec(xx[8,6], color = ifelse(as.numeric(xx[8,6]) > 360 , "red", "black"))
+    xx[9,6] = cell_spec(xx[9,6], color = ifelse(as.numeric(xx[9,6]) > 5000 , "red", "black"))
+    xx[10,6] = cell_spec(xx[10,6], color = ifelse(as.numeric(xx[10,6]) > 255 , "red", "black"))
+    xx[11,6] = cell_spec(xx[11,6], color = ifelse(as.numeric(xx[11,6]) > 3000 , "red", "black"))
+    xx[12,6] = cell_spec(xx[12,6], color = ifelse(as.numeric(xx[12,6]) > 14 , "red", "black"))
+    xx[13,6] = cell_spec(xx[13,6], color = ifelse(as.numeric(xx[13,6]) > 2000 , "red", "black"))
+    xx[14,6] = cell_spec(xx[14,6], color = ifelse(as.numeric(xx[14,6]) > 200 , "red", "black"))
+
+    xx$DataComp = cell_spec(xx$DataComp, color = ifelse(xx$DataComp != 100 , "red", "black"))
+
+    xx <- xx[c( "Mean","Median","StdDev", "Min", "Max","DataComp")] 
+    rownames(xx) <-  c("RawPID (ppb)", "BCPID (ppb)","RawPID (mV)", "Temp (Deg C)","RH (percent)", "Pressure (mBar)","WS (mph)","WD (deg)","S1 temp (arb)","S1 Heat (0-255)",
+                       "S1 Set (arb)","Batvolt (V)","ChargeCurrent (mA)","OperateCurrent (mA)")
     xx %>%
       kbl(escape = F, caption = paste0(start_time, " to ", end_time), digits = 2, table.attr = "style='width:20%;'")%>%
       kable_classic(full_width = F, html_font = "Cambria") %>%
       kable_styling(latex_options = "HOLD_position")
   }
+  
+  
+  # draw_cantab <- function(){ # create output for RMD   ############################################################## editing here !!!!
+  #   req(getcaldata())
+  #   req(input$singlenodestarttime)
+  #   req(input$singlenodeendtime)
+  #   start_time <- as.POSIXct(input$singlenodestarttime, tz = "America/New_York")
+  #   end_time <- as.POSIXct(input$singlenodeendtime, tz = "America/New_York")
+  #   xx <- getcaldata()
+  #   xx <- as.data.frame(xx)
+  #  
+  #   xx$Max[14] = cell_spec(xx$Max[14], color = ifelse(xx$Max[14] > 200 , "red", "black"))
+  #   
+  #   xx$DataComp = cell_spec(xx$DataComp, color = ifelse(xx$DataComp != 100 , "red", "black"))
+  #   
+  #   xx <- xx[c("Mean","Median","StdDev", "Min", "Max","DataComp")]
+  #   xx %>%
+  #     kbl(escape = F, caption = paste0(start_time, " to ", end_time), digits = 2, table.attr = "style='width:20%;'")%>%
+  #     kable_classic(full_width = F, html_font = "Cambria") %>%
+  #     kable_styling(latex_options = "HOLD_position")
+  # }
+  
+  
   
   start.end.time_1 <- function(){ # create output for RMD
     req(getcaldata())
@@ -1414,7 +1468,7 @@ server <- function(input, output, session) {
     spod_all_5_tab <-  spod_all_5min()
     spod_all_5_tab <- spod_all_5_tab %>%
       mutate_if(is.numeric, round, digits = 2)
-    DT::datatable(spod_all_5_tab,
+    DT::datatable(spod_all_5_tab,filter = 'top',
                   options = list(scrollX = TRUE)) %>% formatDate(2, "toLocaleString")
   })
   
