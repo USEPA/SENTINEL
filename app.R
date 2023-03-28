@@ -921,7 +921,7 @@ server <- function(input, output, session) {
       #                                                    SN = input$spodselect,
       #                                                    OutputDate = Sys.Date()))
       
-         tempReport <- file.path(tempdir(), "Sentinel_Report.html")
+         tempReport <- file.path(tempdir(), "Sentinel_Report.Rmd") #.html
         file.copy("Sentinel_Report.Rmd", tempReport, overwrite = TRUE)
         params <- list(plotBC = BCplot_build(),
                        plotWD = WDplot_build(),
