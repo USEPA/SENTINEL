@@ -321,30 +321,21 @@ ui <- dashboardPage( ###################################################### buil
         fluidRow( width = 12,
           box( width = 12,
           br(),
-          h4("Sensor Intelligent Emissions Locator (SENTINEL) is designed to compile, visualize, and analyze fenceline sensor data for users. The QA table functionality of this software is further explained in the Sensit SPod SOP (See link below). 
+          h3("Sensor Intelligent Emissions Locator (SENTINEL) is designed to compile, visualize, and analyze fenceline sensor data for users. The QA table functionality of this software is further explained in the Sensit SPod SOP (See link below). 
              We awknowledge contributions from past and present contributors to this software: Halley Brantley, Yadong Xu, Wei Tang, and Gustavo Quieroz."),
           br()
           )
         ),
         fluidRow(
-          box( width = 6,
-               h3("Version 1.0 (February 2023)"),
+          box( width = 12,
+               h4("Version 1.0 (March 2023)"),
                br(),
                h4("Contact:"),
                h4("macdonald.megan@epa.gov"),
                br(),
+               a("App User Guide",target="_blank",href="SENTINEL Shiny App User Guide V1.pdf"),
                br()
-              ),  
-          box(width = 6,
-            actionButton("pdf", "SENTINEL User Guide", class = "btn-lg",),
-            br(),
-            br(),
-            actionButton("SOP", "Sensit SPod SOP", class = "btn-lg",),
-            br(),
-            br(),
-            actionButton(inputId='ab1', label="NGEM Website",class = "btn-lg",
-                         onclick ="window.open('https://www.epa.gov/air-research/next-generation-emission-measurement-ngem-research-fugitive-air-pollution', '_blank')")
-          )
+              )
         ),
 
         fluidRow(
@@ -1442,15 +1433,7 @@ server <- function(input, output, session) {
       }
     )
 
-  ######################################################### about output
-  observeEvent(input$pdf, {
-    file.show("SENTINEL Shiny App User Guide V1.pdf")
-  })
-  observeEvent(input$SOP, {
-    file.show("J-AMCD-SFSB-SOP-4380-2_Sensit SPod SOP.pdf")
-  })
-  
-  
+  ######################################################### 
 } # end of server
 
 
