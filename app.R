@@ -157,7 +157,7 @@ ui <- dashboardPage( ###################################################### buil
               fluidRow( 
                         box(h4("Output a pdf of this dashboard:"),
                             br(),
-                            downloadButton("report_button", "Generate report")),
+                            downloadButton("report", "Generate report")),
                         box(uiOutput("spodselect"))
               ),
               fluidRow(
@@ -241,9 +241,9 @@ ui <- dashboardPage( ###################################################### buil
                            plotlyOutput("windplot")),
                   tabPanel("Calibrations", "Calibrations: Baseline corrected signal trace plotted in black with user-reported calibration periods plotted as shaded regions, if collected during this time frame",
                            plotlyOutput("CALplot")),
-                  tabPanel("Relative Humidity", "RH: Baseline corrected signal trace plotted in black with Relative Humidity (%) plotted in blue",
+                  tabPanel("Relative Humidity", "RH: Baseline corrected signal trace plotted in black with Relative Humidity (%) plotted in purple",
                            plotlyOutput("RHplot")),
-                  tabPanel("Temperature", "Temperature: Baseline corrected signal trace plotted in black with temperature (deg C) plotted in purple",
+                  tabPanel("Temperature", "Temperature: Baseline corrected signal trace plotted in black with temperature (deg C) plotted in blue",
                            plotlyOutput("Tplot")),
                   tabPanel("Can Triggers", "Canister Triggers: Baseline corrected signal trace plotted in black with canister triggers plotted as points, if collected during this time frame",
                            plotlyOutput("canplot")), 
@@ -285,7 +285,7 @@ ui <- dashboardPage( ###################################################### buil
                                  "30 sec" = 30,
                                  "1 min" = 60),
                      selected = "10 sec"),
-        downloadButton("singlenodereport", "Generate pdf report"),
+        downloadButton("singlenodereport", "Generate report"),
         box(tableOutput("draw_caltab"), width = 12)), #plotOutput
       tabItem(tabName = "multinode", ######################### build MULTI CALIBRATION page
               h2("QA Table for 2 Collocated Units"),
@@ -313,7 +313,7 @@ ui <- dashboardPage( ###################################################### buil
                                        "30 sec" = 30,
                                        "1 min" = 60),
                            selected = "10 sec"),
-              downloadButton("multinodereport", "Generate pdf report"),
+              downloadButton("multinodereport", "Generate report"),
               box(tableOutput("draw_subcaltab"), width = 12)
       ),
       tabItem( ####################################################### build ABOUT page
@@ -512,7 +512,7 @@ server <- function(input, output, session) {
           dplyr::summarize(
             bc.pid.ppb = mean(bc_pid),
             pid.sd = sd(bc_pid, na.rm = TRUE),
-            rawPID_ppb = mean(pid1_PPB_Calc),
+            rawPID.ppb = mean(pid1_PPB_Calc),
             temp = mean(temp),
             rh = mean(rh_Humd),
             pressure = mean(pressure_mbar),
@@ -521,7 +521,7 @@ server <- function(input, output, session) {
             s1temp = mean(tc_temp),
             s1heat = mean(tc_heatOutput),
             set = mean(tc_setPoint),
-            bat_volt = mean(batt_voltage),
+            bat.volt = mean(batt_voltage),
             chg.current = mean(chrg_current),
             opp.current = mean(run_current),
             trigportstat =  paste(unique(trig.canister_status), collapse = ', '),
@@ -570,7 +570,7 @@ server <- function(input, output, session) {
     selectInput("spodselect",h4("Select SPOD unit to display:"), choices = choice, selected = choice[1])
   })
   ######################################################## Date range selector
- ## megan add this.....
+  ## megan add this.....
   ######################################################## Leaflet polar map
   output$polarmap <- renderLeaflet({
     req(input$spodselect)
@@ -637,9 +637,11 @@ server <- function(input, output, session) {
   })
   WR_build <- reactive({# Wind Rose plot
     req(spod_all_5min())
+    req(input$spodselect)
     spod_all_5 <- as.data.frame(spod_all_5min())
     spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect)
+                           spod_all_5$SN == input$spodselect &
+                             spod_all_5$QA == 0)
     windRose(spod_all_5_1,  fontsize = 18, paddle = F, cols = "hue",
              main = NULL, key.position = "right",
              par.settings=list(par.sub.text=list(cex=0.8)))
@@ -659,7 +661,7 @@ server <- function(input, output, session) {
       plot_ly(
         spod_all_5_1,
         x = ~ time,
-        y = ~rawPID_ppb,
+        y = ~rawPID.ppb,
         type = "scatter", name = "Raw Signal",
         mode = "lines",  showlegend = T, connectgaps = FALSE, line = list(color = "black")) %>%
       layout(showlegend = T,
@@ -671,7 +673,7 @@ server <- function(input, output, session) {
              ),
              xaxis = list(type = 'Date', tickformat = "%m/%d/%y")
       )
-    p <- p %>% add_trace(y = spod_all_5_1$rawPID_ppb - spod_all_5_1$bc.pid.ppb, name = 'Baseline', mode = 'lines', connectgaps = FALSE, line = list(color = "red"))
+    p <- p %>% add_trace(y = spod_all_5_1$rawPID.ppb - spod_all_5_1$bc.pid.ppb, name = 'Baseline', mode = 'lines', connectgaps = FALSE, line = list(color = "red"))
     p
   })
   
@@ -909,19 +911,10 @@ server <- function(input, output, session) {
   })
   
   ####################################################### Report Output Option
-  output$report_button <- downloadHandler( # calls Sentinel_Report.RMD to build doc
+  output$report <- downloadHandler( # calls Sentinel_Report.RMD to build doc
     filename = "Sentinel_Report.html",
     content = function(file) {
-      # render(input = "Sentinel_Report.Rmd",
-      #        output_file = "Report.pdf", params = list(plotBC = BCplot_build(),
-      #                                                    plotWD = WDplot_build(),
-      #                                                    plotCT = CTplot_build(),
-      #                                                    WR = WR_build(),
-      #                                                    SDI = SDI_build(),
-      #                                                    SN = input$spodselect,
-      #                                                    OutputDate = Sys.Date()))
-      
-         tempReport <- file.path(tempdir(), "Sentinel_Report.Rmd") #.html
+        tempReport <- file.path(tempdir(), "Sentinel_Report.Rmd") #.html
         file.copy("Sentinel_Report.Rmd", tempReport, overwrite = TRUE)
         params <- list(plotBC = BCplot_build(),
                        plotWD = WDplot_build(),
@@ -1144,22 +1137,25 @@ server <- function(input, output, session) {
   }
   
   output$singlenodereport <- downloadHandler(
-    filename = "single_node_QA_Table.pdf",
+    filename = "single_node_QA_Table.html",
     content = function(file) {
-      res <- rmarkdown::render(
-        "single_node_QA_Table.Rmd",
-        params = list(
-          draw_caltab = draw_caltab,
-          SN_1 = SN_1(),
-          date_1 = date_1(),
-          start.end.time_1 = start.end.time_1(),
-          OutputDate = Sys.Date(),
-          RCodeVersion = "Version 1.0",
-          QATableID_1 = QATableID_1(),
-          Analyst = "_________________________________"
-        )
+      tempReport <- file.path(tempdir(), "single_node_QA_Table.Rmd") #.html
+      file.copy("single_node_QA_Table.Rmd", tempReport, overwrite = TRUE)
+      params <- list(
+        draw_caltab = draw_caltab,
+        SN_1 = SN_1(),
+        date_1 = date_1(),
+        start.end.time_1 = start.end.time_1(),
+        OutputDate = Sys.Date(),
+        RCodeVersion = "Version 1.0",
+        QATableID_1 = QATableID_1(),
+        Analyst = "_________________________________"
       )
-      file.rename(res, file)
+      
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,output_format = "html_document",
+                        envir = new.env(parent = globalenv())
+      )
     }
   )
   
@@ -1401,25 +1397,30 @@ server <- function(input, output, session) {
   }
   
   output$multinodereport <- downloadHandler(
-    filename = "multi_node_QA_Table.pdf",
+    filename = "multi_node_QA_Table.html",
     content = function(file) {
-      res <- rmarkdown::render(
-        "multi_node_QA_Table.Rmd",
-        params = list(
-          draw_subcaltab = draw_subcaltab,
-          SN1 = SN1(),
-          SN2 = SN2(),
-          date = date2(),
-          start.end.time = start.end.time2(),
-          OutputDate = Sys.Date(),
-          RCodeVersion = "Version 1.2",
-          QATableID = QATableID2(),
-          Analyst = "_________________________________"
-        )
+      tempReport <- file.path(tempdir(), "multi_node_QA_Table.Rmd") #.html
+      file.copy("multi_node_QA_Table.Rmd", tempReport, overwrite = TRUE)
+      params <- list(
+        draw_subcaltab = draw_subcaltab,
+        SN1 = SN1(),
+        SN2 = SN2(),
+        date = date2(),
+        start.end.time = start.end.time2(),
+        OutputDate = Sys.Date(),
+        RCodeVersion = "Version 1.2",
+        QATableID = QATableID2(),
+        Analyst = "_________________________________"
       )
-      file.rename(res, file)
+      
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,output_format = "html_document",
+                        envir = new.env(parent = globalenv())
+      )
     }
   )
+  
+  
   
   
   ######################################################### table output

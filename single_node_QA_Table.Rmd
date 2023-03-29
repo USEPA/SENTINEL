@@ -4,7 +4,7 @@ header-includes: \usepackage{float}
 output: 
   pdf_document: 
     fig_crop: no
-geometry: left=1cm,right=1cm,top=0.5cm,bottom=0.5cm
+geometry: left=0.5cm,right=0.5cm,top=0.5cm,bottom=0.5cm
 params:
   draw_caltab: NULL
   SN_1: NULL
