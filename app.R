@@ -1,17 +1,19 @@
 ##########################################################
 
-#                 S  E  N  T  I  N  E  L                #
-#            SENsor INtelligent Emissions Locator       #
+#                 S  E  N  T  I  N  E  L                 #
+#      Sensor Network Intelligent Emissions Locator      #
 
 ##########################################################
 
 # M.K. MacDonald
+# ORD/CEMM/AMCD/SFSB
 # macdonald.megan@epa.gov
 
-# Rev. 1.3: March 21 2023
+# Rev. 1.0: October 17 2023
 
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
+# This is a Shiny web application. You can run the application by clicking the 'Run App' button above.
+
+# Note this software is not yet in final form. Please direct any questions or bug reports to the email above.
 
 ##########################################################
 options(install.packages.check.source = "no")
@@ -43,24 +45,25 @@ library(rmarkdown)
 
 library(htmltools)
 library(devtools)  
-#install_github("davidcarslaw/openairmaps")  
+#install_github("davidcarslaw/openairmaps")  ## make sure this is run the first time running the app
 library(openairmaps)  
 
-# Halley Brantley Functions
-source("screeningFunctions.R")
-source("getBaseline.R")
+# H. Brantley Functions
+source("screeningFunctions.R") ## found in app folder
+source("getBaseline.R") ## found in app folder
 
 # code version
 version <- "1.0"
 ##########################################################
 
+
+
 ########################################################### app starts here:
 
-
-
+# User Interface Build
 
 ui <- dashboardPage( ###################################################### build sidebar
-  skin = "black", # choose panel color for app
+  skin = "black", 
   dashboardHeader(title = "SENTINEL"),
   dashboardSidebar(
     sidebarMenu(
@@ -237,15 +240,15 @@ ui <- dashboardPage( ###################################################### buil
                   title = "Time Series",side = "right",
                   tabPanel("Baseline Fit", "Baseline Fit: Raw signal trace (5 minute values) plotted in black with baseline fit (df = 4) plotted in red",
                            plotlyOutput("BCplot")),
-                  tabPanel("Wind Direction", "Wind Direction: Baseline corrected signal trace plotted in black with wind direction plotted in orange (5 minute values)",
+                  tabPanel("Wind Direction", "Wind Direction: Baseline corrected signal trace (5 minute values) plotted in black with wind direction plotted in orange (5 minute values)",
                            plotlyOutput("windplot")),
-                  tabPanel("Calibrations", "Calibrations: Baseline corrected signal trace plotted in black with user-reported calibration periods plotted as shaded regions, if collected during this time frame",
+                  tabPanel("Calibrations", "Calibrations: Baseline corrected signal trace (5 minute values) plotted in black with user-reported calibration periods plotted as shaded regions, if collected during this time frame",
                            plotlyOutput("CALplot")),
-                  tabPanel("Relative Humidity", "RH: Baseline corrected signal trace plotted in black with Relative Humidity (%) plotted in purple",
+                  tabPanel("Relative Humidity", "RH: Baseline corrected signal trace (5 minute values) plotted in black with Relative Humidity (%) plotted in purple",
                            plotlyOutput("RHplot")),
-                  tabPanel("Temperature", "Temperature: Baseline corrected signal trace plotted in black with temperature (deg C) plotted in blue",
+                  tabPanel("Temperature", "Temperature: Baseline corrected signal trace (5 minute values) plotted in black with temperature (deg C) plotted in blue",
                            plotlyOutput("Tplot")),
-                  tabPanel("Can Triggers", "Canister Triggers: Baseline corrected signal trace plotted in black with canister triggers plotted as points, if collected during this time frame",
+                  tabPanel("Can Triggers", "Canister Triggers: Baseline corrected signal trace (5 minute values) plotted in black with canister triggers plotted as points, if collected during this time frame",
                            plotlyOutput("canplot")), 
                  width = 12
                 ), width = 12
@@ -278,7 +281,7 @@ ui <- dashboardPage( ###################################################### buil
         uiOutput("singlenodeendtime"),
         br(),
         radioButtons("durationInput", h4("Select length of QA frame:"),
-                     choices = c("1 min" = 60, "1 hour" = 3600),
+                     choices = c("1 min" = 60, "1 hour" = 3600, "1 day" = 86400),
                      selected = "1 min"),
         radioButtons("freqfile", h4("Select Frequency of sensor values:"),
                      choices = c("10 sec" = 10,
@@ -286,7 +289,7 @@ ui <- dashboardPage( ###################################################### buil
                                  "1 min" = 60),
                      selected = "10 sec"),
         downloadButton("singlenodereport", "Generate report"),
-        box(tableOutput("draw_caltab"), width = 12)), #plotOutput
+        box(tableOutput("draw_caltab"), width = 12)), 
       tabItem(tabName = "multinode", ######################### build MULTI CALIBRATION page
               h2("QA Table for 2 Collocated Units"),
               br(),
@@ -382,11 +385,15 @@ ui <- dashboardPage( ###################################################### buil
   )
 )
 
+# End of UI build
 
 
 
 
 
+
+
+# Server build 
 
 server <- function(input, output, session) {
   options(shiny.maxRequestSize=50*1024^2) # extend file allowance
@@ -479,13 +486,14 @@ server <- function(input, output, session) {
         Data_sensit$pid <- Data_sensit$pid1_PPB_Calc
         Data_sensit$pid <- screenRH(Data_sensit$pid1_PPB_Calc, Data_sensit$time, Data_sensit$rh_Humd)
         Data_sensit$QA <- ifelse(is.na(Data_sensit$pid) == TRUE, 115, Data_sensit$QA) # flag 15
-        # check for high temp swings ??
-        # check file size? test for data output rate (flag if not 10 sec or 30 sec - make switch in app for this )
         # check for missing data
-        # Data_sensit$QA <- ifelse(is.na(Data_sensit$pid1_PPB_Calc),108,Data_sensit$QA ) # flag x
+        Data_sensit$QA <- ifelse(is.na(Data_sensit$pid1_PPB_Calc),116,Data_sensit$QA ) # flag 16
+        # check for high temp swings ??
+        # check for railing sensor baseline ?
+        # check file size? test for data output rate (flag if not 10 sec or 30 sec - make switch in app for this )
         ######################## end of AutoQA Flagging
         #remove baseline #######
-        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$time, df = 4))
+        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$time, df = 3))
         # Calc u wind and v wind
         Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
         Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
@@ -497,7 +505,7 @@ server <- function(input, output, session) {
         timeBreaks <- seq(round(min(Data_sensit$time, na.rm = T), "hour"),
                           round(max(Data_sensit$time, na.rm = T), "hour"), timeBase)
         Data_sensit$time <- cut(Data_sensit$time, timeBreaks)
-        
+        # average vals to 5 min
         Data_sensit_5 <- Data_sensit %>%
           dplyr::group_by(time) %>%
           dplyr::summarize(
@@ -533,7 +541,6 @@ server <- function(input, output, session) {
         node <- str_match(a, "Export_\\s*(.*?)\\s*_20")
         ID <- node[,2]
         Data_sensit_5$SN <- paste0("SPOD", ID)
-        
         # Roll up data
         filelist[[i]] <- Data_sensit_5
       }
@@ -560,8 +567,6 @@ server <- function(input, output, session) {
     choice <-  unique(spod_all_5min()$SN)
     selectInput("spodselect",h4("Select SPOD unit to display:"), choices = choice, selected = choice[1])
   })
-  ######################################################## Date range selector
-  ## megan add this.....
   ######################################################## Leaflet polar map
   output$polarmap <- renderLeaflet({
     req(input$spodselect)
@@ -586,7 +591,7 @@ server <- function(input, output, session) {
              provider = "Esri.WorldImagery",
              cols = "jet",
              key = TRUE,
-             iconWidth = 350, iconHeight = 350,
+             iconWidth = 450, iconHeight = 650,
              fig.width = 5, fig.height = 5,
              par.settings=list(fontsize=list(text=19),
                                add.line = list(col = "white"),
@@ -708,16 +713,15 @@ server <- function(input, output, session) {
     w
   })
   
-  output$windplot <- renderPlotly({
+  output$windplot <- renderPlotly({ # wind direction plot
     WDplot_build()
   })
   
-  CTplot_build <- reactive({
+  CTplot_build <- reactive({# Canister plot
     req(spod_all_5min())
     spod_all_5 <- as.data.frame(spod_all_5min())
     spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect &
-                             spod_all_5$QA == 0)
+                           spod_all_5$SN == input$spodselect)
     
     spod_all_5_1$trigactiveflag <- as.character(spod_all_5_1$trigactiveflag)
     spod_all_5_1$port1 <- ifelse(grepl("1", spod_all_5_1$trigactiveflag), -1, NA)
@@ -810,7 +814,7 @@ server <- function(input, output, session) {
     w
   })
   
-  output$RHplot <- renderPlotly({
+  output$RHplot <- renderPlotly({ # relative humidity plot
   RHplot_build()
   })
   
@@ -850,11 +854,11 @@ server <- function(input, output, session) {
     w
   })
   
-  output$Tplot <- renderPlotly({
+  output$Tplot <- renderPlotly({ # temperature plot
     Tplot_build()
   })
   
-  CALplot_build <- reactive({ # calibration plot
+  CALplot_build <- reactive({ # calibrations plot
     req(spod_all_5min())
     spod_all_5 <- as.data.frame(spod_all_5min())
     spod_all_5_1 <- subset(spod_all_5,
@@ -897,7 +901,7 @@ server <- function(input, output, session) {
     w
   })
   
-  output$CALplot <- renderPlotly({ # Canister plot
+  output$CALplot <- renderPlotly({ # Calibrations plot
     CALplot_build()
   })
   
@@ -1048,11 +1052,13 @@ server <- function(input, output, session) {
     xx[9,6] = cell_spec(xx[9,6], color = ifelse(as.numeric(xx[9,6]) > 5000 , "red", "black"))
     xx[10,6] = cell_spec(xx[10,6], color = ifelse(as.numeric(xx[10,6]) > 255 , "red", "black"))
     xx[11,6] = cell_spec(xx[11,6], color = ifelse(as.numeric(xx[11,6]) > 3000 , "red", "black"))
-    xx[12,6] = cell_spec(xx[12,6], color = ifelse(as.numeric(xx[12,6]) > 14 , "red", "black"))
+    xx[12,6] = cell_spec(xx[12,6], color = ifelse(as.numeric(xx[12,6]) > 15 , "red", "black"))
     xx[13,6] = cell_spec(xx[13,6], color = ifelse(as.numeric(xx[13,6]) > 2000 , "red", "black"))
     xx[14,6] = cell_spec(xx[14,6], color = ifelse(as.numeric(xx[14,6]) > 200 , "red", "black"))
 
-    xx$DataComp = cell_spec(xx$DataComp, color = ifelse(xx$DataComp != 100 , "red", "black"))
+    xx[3,4] = cell_spec(xx[3,4], color = ifelse(as.numeric(xx[3,4]) > 50 , "red", "black"))
+    
+    xx$DataComp = cell_spec(xx$DataComp, color = ifelse(xx$DataComp < 90 , "red", "black"))
    
     
     cantf <- ifelse(xx1[15,6] < 0 | is.na(xx1[15,6]), "FALSE", "TRUE")
