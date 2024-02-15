@@ -9,7 +9,7 @@
 # ORD/CEMM/AMCD/SFSB
 # macdonald.megan@epa.gov
 
-# Rev. 1.0: October 17 2023
+# Rev. 1.0: February 15 2023
 
 # This is a Shiny web application. You can run the application by clicking the 'Run App' button above.
 
@@ -49,7 +49,6 @@ library(devtools)
 library(openairmaps)  
 
 # H. Brantley Functions
-source("screeningFunctions.R") ## found in app folder
 source("getBaseline.R") ## found in app folder
 
 # code version
@@ -157,12 +156,33 @@ ui <- dashboardPage( ###################################################### buil
       ),
       
       tabItem(tabName = "home", ################################## build DASHBOARD page
-              fluidRow( 
-                        box(h4("Output a pdf of this dashboard:"),
-                            br(),
-                            downloadButton("report", "Generate report")),
-                        box(uiOutput("spodselect"))
+              # fluidRow( 
+              #           box(h4("Output a pdf of this dashboard:"),
+              #               br(),
+              #               downloadButton("report", "Generate report")),
+              #           box(uiOutput("spodselect"), 
+              #               radioButtons("ws_select", label = "Remove low WS?", choices = c("All Data", ">1 m/s"),
+              #                            selected = "All Data", inline=TRUE))
+              # ),
+              
+              
+              fluidRow(
+                column(9, 
+                       uiOutput("spodselect")
+                    
+                ),
+                column(2, 
+                       radioButtons("ws_select", label = "Remove low WS?", 
+                                    choices = c("All Data", ">1 m/s"),
+                                    selected = "All Data", inline=TRUE)
+                ),
+                column(1, 
+                       downloadButton("report", "Export"),
+                )
               ),
+
+              
+              
               fluidRow(
                 tabBox(
                   title = "Signal Map",side = "right",  ### Signal Map Box
@@ -324,62 +344,39 @@ ui <- dashboardPage( ###################################################### buil
         fluidRow( width = 12,
           box( width = 12,
           br(),
-          h3("Sensor Intelligent Emissions Locator (SENTINEL) is designed to compile, visualize, and analyze fenceline sensor data for users. The QA table functionality of this software is further explained in the Sensit SPod SOP (See link below). 
-             We awknowledge contributions from past and present contributors to this software: Halley Brantley, Yadong Xu, Wei Tang, and Gustavo Quieroz."),
+          HTML("<h3> <b>SENTINEL:</b> An application for automated fenceline sensor data analysis </h3>"),
+          br(),
+          h4(div(em("Purpose:"))),
+          br(),
+          h4("There is growing interest in fenceline monitoring around chemical facilities. 
+             Fenceline sensors used in these monitoring applications can collect large amounts 
+             of concentration and meteorological data for extended time periods. The SENsor 
+             InTellIgeNt Emissions Locator (SENTINEL) application helps users compile, process,
+             and analyze data from a specific commercial fenceline sensor that was based on the
+             EPA open-source SPod (sensor pod) design. This application delivers these 
+             capabilities in a user-friendly interface that can combine and process daily data
+             files from multi-sensor deployments, allowing users to gain insights from compiled
+             sensor data over time. The SENTINEL app is one of the technologies developed under
+             the Next Generation Emissions Measurements (NGEM) program. We awknowledge contributions
+             from past and present contributors to this software: Halley Brantley, Yadong Xu,
+             Wei Tang, and Gustavo Quieroz."),
           br()
           )
         ),
+        
+        
         fluidRow(
           box( width = 12,
-               h4("Version 1.0 (March 2023)"),
+               h4("Version 1.0 (Feb 2024)"),
                br(),
                h4("Contact:"),
                h4("macdonald.megan@epa.gov"),
                br(),
-               a("App User Guide",target="_blank",href="SENTINEL Shiny App User Guide V1.pdf"),
+               actionButton("pdf", "SENTINEL User Guide",class = "btn-success", class = "btn-lg", onclick = "window.open('SENTINEL Shiny App User Guide V1.pdf')"),
                br()
               )
-        ),
-
-        fluidRow(
-          box(width = 4,
-              h3("Technical Info:"),
-              actionButton(inputId='ab1', label="Reading SDI Plots",class = "btn-success", class = "btn-lg",
-                           onclick ="window.open('https://bookdown.org/david_carslaw/openair/', '_blank')"),
-              br(),
-              br(),
-              actionButton(inputId='ab1', label="Sensit SPods Manual",class = "btn-success", class = "btn-lg",
-                           onclick ="window.open('https://gasleaksensors.com/products/sensit-spod-voc-emissions-air-pollutant-monitor/', '_blank')"),
-              br(),
-              br(),
-              actionButton(inputId='ab1', label="Sensit Connect",class = "btn-success", class = "btn-lg",
-                           onclick ="window.open('https://sensitconnect.net/sessions/signin?return=%2Fdashboard', '_blank')"),), 
-          box(width = 4,
-              h3("Webinars:"),
-              actionButton(inputId='ab1', label="Seminar: NGEM Advancements ",class = "btn-info", class = "btn-lg",
-                           onclick ="window.open('https://www.youtube.com/watch?v=jUTQrVVTYNg', '_blank')"),
-              br(),
-              br(),
-              actionButton(inputId='ab1', label="Fenceline Sensors Comparison Study",class = "btn-info", class = "btn-lg",
-                           onclick ="window.open('https://www.youtube.com/watch?v=ACFm8-WhMRU', '_blank')"),
-              br(),
-              br(),
-              actionButton(inputId='ab1', label="SPods Tools and Resources Webinar",class = "btn-info", class = "btn-lg",
-                           onclick ="window.open('https://www.epa.gov/research-states/sensor-pods-volatile-organic-compound-fenceline-monitoring-and-data-analysis', '_blank')")), 
-          box(width = 4,
-              h3("Articles:"),
-              actionButton(inputId='ab1', label="NGEM Science Matters Article",class = "btn-primary", class = "btn-lg",
-                           onclick ="window.open('https://www.epa.gov/sciencematters/epa-researchers-develop-new-air-monitoring-technology-understand-leaks-and-irregular', '_blank')"),
-              br(),
-              br(),
-              actionButton(inputId='ab1', label="2019 Rubbertown Study",class = "btn-primary", class = "btn-lg",
-                           onclick ="window.open('https://www.mdpi.com/1660-4601/16/11/2041', '_blank')"),
-              br(),
-              br(),
-              actionButton(inputId='ab1', label="2022 Rubbertown Study",class = "btn-primary", class = "btn-lg",
-                           onclick ="window.open('https://www.mdpi.com/1424-8220/22/9/3480', '_blank')"))
         )
-        
+       
       )
     )
   )
@@ -468,32 +465,22 @@ server <- function(input, output, session) {
         ##################### Complete quick Auto QA scan
         ##### look for QA col, if not there, add it
         if(!'QA' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(QA = 0)
-        # check for very negative PID
-        Data_sensit$QA <- ifelse(Data_sensit$pid1_PPB_Calc < -100,108,Data_sensit$QA ) # flag 8
-        # check for very high PID
-        Data_sensit$QA <- ifelse(Data_sensit$pid1_PPB_Calc > 5000,109,Data_sensit$QA ) # flag 9
         # check for repeated wind/PID vals
         Data_sensit$QA <- ifelse(rep(rle(Data_sensit$ws_speed)$lengths,
-                                     times = rle(Data_sensit$ws_speed)$lengths) * sign(Data_sensit$ws_speed) > 30, 110, Data_sensit$QA ) # flag 10
+                                     times = rle(Data_sensit$ws_speed)$lengths) * sign(Data_sensit$ws_speed) > 30, 108, Data_sensit$QA ) # flag 10
         Data_sensit$QA <- ifelse(rep(rle(Data_sensit$ws_direction)$lengths,
-                                     times = rle(Data_sensit$ws_direction)$lengths) * sign(Data_sensit$ws_direction) > 30, 111, Data_sensit$QA ) # flag 11
+                                     times = rle(Data_sensit$ws_direction)$lengths) * sign(Data_sensit$ws_direction) > 30, 109, Data_sensit$QA ) # flag 11
         Data_sensit$QA <- ifelse(rep(rle(Data_sensit$pid1_PPB_Calc)$lengths,
-                                     times = rle(Data_sensit$pid1_PPB_Calc)$lengths) * sign(Data_sensit$ws_direction) > 30, 112, Data_sensit$QA ) # flag 12
+                                     times = rle(Data_sensit$pid1_PPB_Calc)$lengths) * sign(Data_sensit$ws_direction) > 30, 110, Data_sensit$QA ) # flag 12
         # check for illogical wind vals
-        Data_sensit$QA <- ifelse(Data_sensit$ws_speed > 12,113,Data_sensit$QA ) # flag 13
-        Data_sensit$QA <- ifelse(Data_sensit$ws_direction > 360 | Data_sensit$ws_direction < 0,114,Data_sensit$QA ) # flag 14
-        # check for high humidity swings w/ extra pid col so original values dont change
-        Data_sensit$pid <- Data_sensit$pid1_PPB_Calc
-        Data_sensit$pid <- screenRH(Data_sensit$pid1_PPB_Calc, Data_sensit$time, Data_sensit$rh_Humd)
-        Data_sensit$QA <- ifelse(is.na(Data_sensit$pid) == TRUE, 115, Data_sensit$QA) # flag 15
+        Data_sensit$QA <- ifelse(Data_sensit$ws_speed > 12,111,Data_sensit$QA ) # flag 11
+        Data_sensit$QA <- ifelse(Data_sensit$ws_direction > 360 | Data_sensit$ws_direction < 0,112,Data_sensit$QA ) # flag 12
         # check for missing data
-        Data_sensit$QA <- ifelse(is.na(Data_sensit$pid1_PPB_Calc),116,Data_sensit$QA ) # flag 16
-        # check for high temp swings ??
-        # check for railing sensor baseline ?
-        # check file size? test for data output rate (flag if not 10 sec or 30 sec - make switch in app for this )
+        Data_sensit$QA <- ifelse(is.na(Data_sensit$pid1_PPB_Calc),113,Data_sensit$QA ) # flag 13
         ######################## end of AutoQA Flagging
+        
         #remove baseline #######
-        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$time, df = 3))
+        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$time, df = 10))
         # Calc u wind and v wind
         Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
         Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
@@ -549,6 +536,12 @@ server <- function(input, output, session) {
     }
   })
   
+ spod_all_5min_highws <- reactive({
+   req(spod_all_5min())
+   all <- spod_all_5min()
+   spod_all_5min_highws <- subset(all, all$ws >= 1)
+ })
+  
   ############################################################################## DATA INPUT output table
   output$contents5 <-  DT::renderDataTable({
     req(spod_all_5min())
@@ -567,21 +560,33 @@ server <- function(input, output, session) {
     choice <-  unique(spod_all_5min()$SN)
     selectInput("spodselect",h4("Select SPOD unit to display:"), choices = choice, selected = choice[1])
   })
-  ######################################################## Leaflet polar map
+
+  spod_all_5min_active <- reactive({
+    if (input$ws_select == "All Data")
+      spod_all_5min()
+    else if (input$ws_select == ">1 m/s")
+      spod_all_5min_highws()
+    # else
+    #   stop("Unexpected dataset")
+  })
+  
+
+  
+    ######################################################## Leaflet polar map
   output$polarmap <- renderLeaflet({
     req(input$spodselect)
     req(input$statselect)
     spodinput <- input$spodselect
     statinput <- input$statselect
-    req(spod_all_5min())
-    spod_all_5 <- as.data.frame(spod_all_5min()) 
+    req(spod_all_5min_active())
+    spod_all_5 <- as.data.frame(spod_all_5min_active()) 
     spod_all_5_1 <- subset(spod_all_5,
                            # spod_all_5$SN == input$spodselect &
                              spod_all_5$ws >= input$windfilterInput[1] & 
                              spod_all_5$ws <= input$windfilterInput[2] &
                              spod_all_5$QA == 0)
     
-    output$latlongtext <- renderText({ "Note: If no lat/long data is detected, basemap will not be displayed"})
+    output$latlongtext <- renderText({ "Note: Basemap only displayed when lat/long data detected"})
     
     polarMap(spod_all_5_1,
              latitude = 'lat',
@@ -604,10 +609,10 @@ server <- function(input, output, session) {
   #str(trellis.par.get(), max.level = 1)
   ######################################################## SDI plots and Wind Roses
   output$FREQ <- renderPlot({
-    req(spod_all_5min())
+    req(spod_all_5min_active())
     req(input$spodselect)
     req(input$statselectFREQ)
-    spod_all_5 <- as.data.frame(spod_all_5min())
+    spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
@@ -617,10 +622,10 @@ server <- function(input, output, session) {
   })
   
   SDI_build <- reactive({# SDI plot
-    req(spod_all_5min())
+    req(spod_all_5min_active())
     req(input$spodselect)
     req(input$statselectSDI) 
-    spod_all_5 <- as.data.frame(spod_all_5min())
+    spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
@@ -632,9 +637,9 @@ server <- function(input, output, session) {
     SDI_build()
   })
   WR_build <- reactive({# Wind Rose plot
-    req(spod_all_5min())
+    req(spod_all_5min_active())
     req(input$spodselect)
-    spod_all_5 <- as.data.frame(spod_all_5min())
+    spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
@@ -648,8 +653,8 @@ server <- function(input, output, session) {
   })
   ######################################################## time series outputs
   BCplot_build <- reactive({# background Correction plot
-    req(spod_all_5min())
-    spod_all_5 <- as.data.frame(spod_all_5min())
+    req(spod_all_5min_active())
+    spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
@@ -678,8 +683,8 @@ server <- function(input, output, session) {
   })
   
   WDplot_build <- reactive({    # Wind Direction plot
-    req(spod_all_5min())
-    spod_all_5 <- as.data.frame(spod_all_5min())
+    req(spod_all_5min_active())
+    spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
@@ -718,8 +723,8 @@ server <- function(input, output, session) {
   })
   
   CTplot_build <- reactive({# Canister plot
-    req(spod_all_5min())
-    spod_all_5 <- as.data.frame(spod_all_5min())
+    req(spod_all_5min_active())
+    spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect)
     
@@ -780,8 +785,8 @@ server <- function(input, output, session) {
   })
   
   RHplot_build <- reactive({    # Relative Humidity plot
-    req(spod_all_5min())
-    spod_all_5 <- as.data.frame(spod_all_5min())
+    req(spod_all_5min_active())
+    spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
@@ -819,8 +824,8 @@ server <- function(input, output, session) {
   })
   
   Tplot_build <- reactive({    # Temperature plot
-    req(spod_all_5min())
-    spod_all_5 <- as.data.frame(spod_all_5min())
+    req(spod_all_5min_active())
+    spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
@@ -859,8 +864,8 @@ server <- function(input, output, session) {
   })
   
   CALplot_build <- reactive({ # calibrations plot
-    req(spod_all_5min())
-    spod_all_5 <- as.data.frame(spod_all_5min())
+    req(spod_all_5min_active())
+    spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect )
     
