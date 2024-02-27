@@ -9,7 +9,7 @@
 # ORD/CEMM/AMCD/SFSB
 # macdonald.megan@epa.gov
 
-# Rev. 1.0: February 15 2023
+# Rev. 1.0: February 15 2024
 
 # This is a Shiny web application. You can run the application by clicking the 'Run App' button above.
 
@@ -108,6 +108,13 @@ ui <- dashboardPage( ###################################################### buil
     )
   ),
   dashboardBody( ################################################## build main page of app
+    
+    # tags$head(tags$style(HTML('  /* body */
+    #                             .content-wrapper, .right-side {
+    #                             background-color: #FFFFFF;
+    #                             }
+    #                             '))),
+
     tabItems(
       tabItem(tabName = "QAflagging", ############################ build QA FLAGGING page
               h2("QA Flags"),
@@ -156,15 +163,6 @@ ui <- dashboardPage( ###################################################### buil
       ),
       
       tabItem(tabName = "home", ################################## build DASHBOARD page
-              # fluidRow( 
-              #           box(h4("Output a pdf of this dashboard:"),
-              #               br(),
-              #               downloadButton("report", "Generate report")),
-              #           box(uiOutput("spodselect"), 
-              #               radioButtons("ws_select", label = "Remove low WS?", choices = c("All Data", ">1 m/s"),
-              #                            selected = "All Data", inline=TRUE))
-              # ),
-              
               
               fluidRow(
                 column(9, 
@@ -181,9 +179,13 @@ ui <- dashboardPage( ###################################################### buil
                 )
               ),
 
+              ## SDI row
               
               
               fluidRow(
+                
+                ## signal map 
+                
                 tabBox(
                   title = "Signal Map",side = "right",  ### Signal Map Box
                   tabPanel("Graph",
@@ -208,13 +210,36 @@ ui <- dashboardPage( ###################################################### buil
                              ),
                              selected = "median"
                            ),
-                           h5("For less than 200 data points, selct 'nwr' "),
+                           h6("For less than 200 data points, selct 'nwr' "),
                            height = "500px"
                   ), height = "500px"
                 ),
+                
+                
+                # SDI plots box
+                
                 tabBox(
-                  title = "SDI plots",side = "right",   ### SDI plots box
-                  tabPanel("SDI Plots",
+                  title = "SDI plots", side = "right",   ### SDI plots box
+                  tabPanel("SDI",
+                           fluidRow(
+                             box(
+                               selectInput(
+                                 "statselectSDI",
+                                 label = h4("Select SDI Stat:"),
+                                 choices = list(
+                                   "Median" = "median",
+                                   "Weighted Mean" = "weighted.mean",
+                                   "Mean" = "mean",
+                                   "Maximum" = "max", "nwr" = "nwr"
+                                 ),
+                                 selected = "median"
+                               ),
+                               plotOutput("SDI")%>% withSpinner(color="#0dc5c1"),
+                                 height = "550px", width = "600px")), height = "550px", width = "600px"
+                  ),
+                  
+                  
+                  tabPanel("Freq",
                            fluidRow(
                              box(
                                selectInput(
@@ -229,31 +254,22 @@ ui <- dashboardPage( ###################################################### buil
                                  selected = "median"
                                ),
                                plotOutput("FREQ") %>% withSpinner(color="#0dc5c1"),
-                                 height = "450px"),
-                             box(
-                               selectInput(
-                                 "statselectSDI",
-                                 label = h4("Select SDI Stat:"),
-                                 choices = list(
-                                   "Median" = "median",
-                                   "Weighted Mean" = "weighted.mean",
-                                   "Mean" = "mean",
-                                   "Maximum" = "max", "nwr" = "nwr"
-                                 ),
-                                 selected = "median"
-                               ),
-                               plotOutput("SDI")%>% withSpinner(color="#0dc5c1"),
-                                 height = "450px")
-                             
-                           ), height = "470px"
-                  ),
+                               height = "550px", width = "600px")), height = "550px", width = "600px"
+                           ),
+                  
+       
                   tabPanel("Wind Rose",
                            fluidRow(
-                             box(plotOutput("WR") %>% withSpinner(color = "#0dc5c1")),
-                             height = "450px"), height = "470px")),
+                             box(plotOutput("WR") %>% withSpinner(color = "#0dc5c1"),
+                             height = "550px", width = "600px")), height = "550px", width = "600px")),
                 
-                height = "500px"
+                height = "550px", width = "600px"
               ),
+              
+            
+              br(),
+              br(),
+              br(),
               
               fluidRow( ### Time Series plots box
                 tabBox(
@@ -596,8 +612,8 @@ server <- function(input, output, session) {
              provider = "Esri.WorldImagery",
              cols = "jet",
              key = TRUE,
-             iconWidth = 450, iconHeight = 650,
-             fig.width = 5, fig.height = 5,
+             # iconWidth = 450, iconHeight = 650,
+             # fig.width = 5, fig.height = 5,
              par.settings=list(fontsize=list(text=19),
                                add.line = list(col = "white"),
                                axis.line = list(col = "white"),
@@ -617,8 +633,13 @@ server <- function(input, output, session) {
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
     statFREQ <- input$statselectFREQ
+    
+   trellis.par.set(theme = col.whitebg()) # make background transparent 
+    
+    
     polarFreq(spod_all_5_1, pollutant = "bc.pid.ppb",fontsize = 18,
-              statistic = statFREQ, main = NULL, key.position = "right")
+              statistic = statFREQ, main = NULL, key.position = "right", 
+              par.settings = col.whitebg())
   })
   
   SDI_build <- reactive({# SDI plot
@@ -630,8 +651,15 @@ server <- function(input, output, session) {
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
     statSDI <- input$statselectSDI
+    
+    trellis.par.set(theme = col.whitebg()) # make background transparent 
+    
     polarPlot(spod_all_5_1, pollutant = "bc.pid.ppb",  fontsize = 18,
-              statistic = statSDI, main = NULL, key.position = "right")
+              statistic = statSDI, main = NULL, key.position = "right", 
+              par.settings = col.whitebg())
+              
+
+    
   })
   output$SDI <- renderPlot({
     SDI_build()
@@ -643,9 +671,15 @@ server <- function(input, output, session) {
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
+    
+    #trellis.par.set(background = list(col="green")) # make background transparent 
+    
+    trellis.par.set(theme = col.whitebg()) # make background transparent 
+    
     windRose(spod_all_5_1,  fontsize = 18, paddle = F, cols = "hue",
              main = NULL, key.position = "right",
-             par.settings=list(par.sub.text=list(cex=0.8)))
+             par.settings=list(par.sub.text=list(cex=0.8),
+                               col.whitebg()))
     
   })
   output$WR <- renderPlot({
@@ -664,15 +698,17 @@ server <- function(input, output, session) {
         x = ~ time,
         y = ~rawPID.ppb,
         type = "scatter", name = "Raw Signal",
+        hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
+        hoverinfo = "text",
         mode = "lines",  showlegend = T, connectgaps = FALSE, line = list(color = "black")) %>%
       layout(showlegend = T,
              yaxis = list(title = "Signal (ppb)"),
              legend = list(
                orientation = "h",
                x = 0.3,
-               y = -0.2
+               y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
       )
     p <- p %>% add_trace(y = spod_all_5_1$rawPID.ppb - spod_all_5_1$bc.pid.ppb, name = 'Baseline', mode = 'lines', connectgaps = FALSE, line = list(color = "red"))
     p
@@ -700,14 +736,16 @@ server <- function(input, output, session) {
         x = ~time,
         y = ~wd,
         type = "scatter", name = "Wind Direction",
+        hovertext = ~ paste0("time: ", spod_all_5_1$time),
+        hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "green")) %>%
       layout(showlegend = T,
              legend = list(
                orientation = "h",
                x = 0.3,
-               y = -0.2
+               y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
       )
     w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
@@ -745,6 +783,8 @@ server <- function(input, output, session) {
         x = ~time,
         y = ~port1,
         type = "scatter", name = "port1",
+        hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
+        hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "darkgreen", size = 10, opacity = 0.8)) %>%
       layout(showlegend = T,
              yaxis = list(title = " ", range = c(-4,6), tickfont = list(color = "white"),
@@ -752,23 +792,29 @@ server <- function(input, output, session) {
              legend = list(
                orientation = "h",
                x = 0.3,
-               y = -0.2
+               y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
       )
     w <- w %>% add_trace( spod_all_5_1,
                           x = ~time,
                           y = ~port2,
                           type = "scatter", name = "port2",
+                          hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
+                          hoverinfo = "text",
                           mode = "markers",  showlegend = T, marker = list(color = "darkcyan", size = 10, opacity = 0.8))
     w <- w %>% add_trace( spod_all_5_1,
                           x = ~time,
                           y = ~port3,
+                          hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
+                          hoverinfo = "text",
                           type = "scatter", name = "port3",
                           mode = "markers",  showlegend = T, marker = list(color = "mediumblue", size = 10, opacity = 0.8))
     w <- w %>% add_trace( spod_all_5_1,
                           x = ~time,
                           y = ~port4,
+                          hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
+                          hoverinfo = "text",
                           type = "scatter", name = "port4",
                           mode = "markers",  showlegend = T, marker = list(color = "purple4", size = 10, opacity = 0.8))
     w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
@@ -801,14 +847,16 @@ server <- function(input, output, session) {
         x = ~time,
         y = ~rh,
         type = "scatter", name = "Relative Humidity",
+        hovertext = ~ paste0("time: ", spod_all_5_1$time),
+        hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "purple")) %>%
       layout(showlegend = T,
              legend = list(
                orientation = "h",
                x = 0.3,
-               y = -0.2
+               y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
       )
     w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
@@ -841,14 +889,16 @@ server <- function(input, output, session) {
         x = ~time,
         y = ~temp,
         type = "scatter", name = "Temperature",
+        hovertext = ~ paste0("time: ", spod_all_5_1$time),
+        hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "blue")) %>%
       layout(showlegend = T,
              legend = list(
                orientation = "h",
                x = 0.3,
-               y = -0.2
+               y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
       )
     w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
@@ -884,6 +934,8 @@ server <- function(input, output, session) {
         x = ~time,
         y = ~Calibration,
         type = "scatter", name = "Calibration",
+        hovertext = ~ paste0("time: ", spod_all_5_1$time),
+        hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "orange", size = 10, opacity = 0.8)) %>%
       layout(showlegend = T,
              yaxis = list(title = " ", range = c(-4,6), tickfont = list(color = "white"),
@@ -891,9 +943,9 @@ server <- function(input, output, session) {
              legend = list(
                orientation = "h",
                x = 0.3,
-               y = -0.2
+               y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
       )
    
     w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
@@ -960,7 +1012,7 @@ server <- function(input, output, session) {
         Data_sensit <- fread(input$file1[[i, 'datapath']], select = c(2:19), skip = 2, fill = TRUE)
         Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S", tz = "America/New_York")
         #remove baseline #######
-        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 4))
+        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 10))
         # Calc u wind and v wind
         Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
         Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
@@ -1063,7 +1115,7 @@ server <- function(input, output, session) {
 
     xx[3,4] = cell_spec(xx[3,4], color = ifelse(as.numeric(xx[3,4]) > 50 , "red", "black"))
     
-    xx$DataComp = cell_spec(xx$DataComp, color = ifelse(xx$DataComp < 90 , "red", "black"))
+    xx$DataComp = cell_spec(xx$DataComp, color = ifelse(xx$DataComp != 100 , "red", "black"))
    
     
     cantf <- ifelse(xx1[15,6] < 0 | is.na(xx1[15,6]), "FALSE", "TRUE")
@@ -1184,7 +1236,7 @@ server <- function(input, output, session) {
         Data_sensit <- fread(input$file1multi[[i, 'datapath']], select = c(2:19), skip = 2, fill = TRUE)
         Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S", tz = "America/New_York")
         #remove baseline #######
-        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 4))
+        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 10))
         # Calc u wind and v wind
         Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
         Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
@@ -1266,7 +1318,7 @@ server <- function(input, output, session) {
         Data_sensit <- fread(input$file2multi[[i, 'datapath']], select = c(2:19), skip = 2, fill = TRUE)
         Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S", tz = "America/New_York")
         #remove baseline #######
-        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 4))
+        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 10))
         # Calc u wind and v wind
         Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
         Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
