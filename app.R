@@ -35,6 +35,7 @@ library(quantreg)
 library(splines2)  
 library(splines)  
 library(rhandsontable)
+library(zoo)
 
 library(tinytex)
 # tinytex::install_tinytex()  ## make sure this is run the first time running the app
