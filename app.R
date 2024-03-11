@@ -5,11 +5,9 @@
 
 ##########################################################
 
-# M.K. MacDonald
-# ORD/CEMM/AMCD/SFSB
-# macdonald.megan@epa.gov
+# M.K. MacDonald -//- ORD/CEMM/AMCD/SFSB -//- macdonald.megan@epa.gov
 
-# Rev. 1.0: February 15 2024
+# Rev. 1.0: MARCH 2024
 
 # This is a Shiny web application. You can run the application by clicking the 'Run App' button above.
 
@@ -431,6 +429,9 @@ server <- function(input, output, session) {
         node <- str_match(a, "Export_\\s*(.*?)\\s*_20")
         ID <- node[,2]
         Data_sensit$SN <- ID
+        Data_sensit$lat <- round(Data_sensit$lat, 4)
+        Data_sensit$long <- round(Data_sensit$long, 4)
+        
         # Roll up data
         filelist[[i]] <- Data_sensit
       }
@@ -501,9 +502,14 @@ server <- function(input, output, session) {
         # Calc u wind and v wind
         Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
         Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
-        # Check for lat and long
-        if(!'lat' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(lat = NA)
-        if(!'long' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(long = NA)
+        # Check for lat and long // round to prevent slightly off coordinates // return 0 to NA for mapping
+        if(!'lat' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(lat = 0)
+        if(!'long' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(long = 0)
+        Data_sensit$lat <- round(Data_sensit$lat, 4)
+        Data_sensit$long <- round(Data_sensit$long, 4)
+        Data_sensit$lat[is.na(Data_sensit$lat)] <- 0
+        Data_sensit$long[is.na(Data_sensit$long)] <- 0
+        
         # roll up to 5 min
         timeBase <- "5 min"
         timeBreaks <- seq(round(min(Data_sensit$time, na.rm = T), "hour"),
@@ -703,13 +709,15 @@ server <- function(input, output, session) {
         hoverinfo = "text",
         mode = "lines",  showlegend = T, connectgaps = FALSE, line = list(color = "black")) %>%
       layout(showlegend = T,
-             yaxis = list(title = "Signal (ppb)"),
+             yaxis = list(title = "5-min Signal (ppb)", showgrid = FALSE, showline = TRUE, mirror=TRUE),
              legend = list(
                orientation = "h",
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+             scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
+                          yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
     p <- p %>% add_trace(y = spod_all_5_1$rawPID.ppb - spod_all_5_1$bc.pid.ppb, name = 'Baseline', mode = 'lines', connectgaps = FALSE, line = list(color = "red"))
     p
@@ -730,7 +738,9 @@ server <- function(input, output, session) {
       tickfont = list(color = "black"),
       overlaying = "y",
       side = "right",
-      title = "Signal (ppb)")
+      title = "5-min Signal (ppb)",
+      showgrid = FALSE,
+      showline = TRUE, mirror=TRUE)
     w <-
       plot_ly(
         spod_all_5_1,
@@ -746,13 +756,15 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, mirror=TRUE),
+             scene = list(xaxis = list(showgrid = F,showline = TRUE, mirror=TRUE),
+                          yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
     w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
-      xaxis = list(title="Date"),
-      yaxis = list(title= list(text = "Wind Direction (Deg.)", font = list(color = 'darkgreen')), tickfont = list(color = 'darkgreen')),
+      xaxis = list(title="Date", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+      yaxis = list(title= list(text = "Wind Direction (Deg.)", font = list(color = 'darkgreen')), tickfont = list(color = 'darkgreen'), showgrid = FALSE, showline = TRUE, mirror=TRUE),
       margin = list(l = 50, t = 50, b =50, r = 100, pad = 20))
     w
   })
@@ -777,7 +789,10 @@ server <- function(input, output, session) {
       tickfont = list(color = "black"),
       overlaying = "y",
       side = "right",
-      title = "Signal (ppb)")
+      title = "5-min Signal (ppb)",
+      showgrid = FALSE,
+      showline = TRUE, mirror=TRUE)
+    
     w <-
       plot_ly(
         spod_all_5_1,
@@ -789,13 +804,15 @@ server <- function(input, output, session) {
         mode = "markers",  showlegend = T, marker = list(color = "darkgreen", size = 10, opacity = 0.8)) %>%
       layout(showlegend = T,
              yaxis = list(title = " ", range = c(-4,6), tickfont = list(color = "white"),
-                          zeroline = FALSE),
+                          zeroline = FALSE, showgrid = FALSE, showline = TRUE, mirror=TRUE),
              legend = list(
                orientation = "h",
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE,showline = TRUE, mirror=TRUE),
+             scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
+                          yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
     w <- w %>% add_trace( spod_all_5_1,
                           x = ~time,
@@ -821,8 +838,8 @@ server <- function(input, output, session) {
     w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
-      xaxis = list(title="Date"),
-      yaxis = list(title="Canister Triggers"),
+      xaxis = list(title="Date", showgrid = FALSE, mirror=TRUE),
+      yaxis = list(title=" ", showgrid = FALSE, mirror=TRUE),
       margin = list(l = 50, t = 50, b =50, r = 100, pad = 20))
     
     w
@@ -841,7 +858,8 @@ server <- function(input, output, session) {
       tickfont = list(color = "black"),
       overlaying = "y",
       side = "right",
-      title = "Signal (ppb)")
+      title = "5-min Signal (ppb)", 
+      showgrid = FALSE, mirror=TRUE)
     w <-
       plot_ly(
         spod_all_5_1,
@@ -857,13 +875,15 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE),
+             scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
+                          yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
     w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
-      xaxis = list(title="Date"),
-      yaxis = list(title= list(text = "Relative Humididty (%)", font = list(color = 'purple')), tickfont = list(color = 'purple')),
+      xaxis = list(title="Date", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+      yaxis = list(title= list(text = "Relative Humididty (%)", font = list(color = 'purple')), tickfont = list(color = 'purple'), showgrid = FALSE, showline = TRUE, mirror=TRUE),
       margin = list(l = 50, t = 50, b =50, r = 100, pad = 20))
     w
   })
@@ -883,7 +903,8 @@ server <- function(input, output, session) {
       tickfont = list(color = "black"),
       overlaying = "y",
       side = "right",
-      title = "Signal (ppb)")
+      title = "5-min Signal (ppb)",
+      showgrid = FALSE, showline = TRUE, mirror=TRUE)
     w <-
       plot_ly(
         spod_all_5_1,
@@ -899,13 +920,15 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE),
+             scene = list(xaxis = list(showgrid = F),
+                          yaxis = list(showgrid = F))
       )
     w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
-      xaxis = list(title="Date"),
-      yaxis = list(title= list(text = "Temperature (C)", font = list(color = 'blue')), tickfont = list(color = 'blue')),
+      xaxis = list(title="Date", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+      yaxis = list(title= list(text = "Temperature (C)", font = list(color = 'blue')), tickfont = list(color = 'blue'), showgrid = FALSE, showline = TRUE, mirror=TRUE),
       margin = list(l = 50, t = 50, b =50, r = 100, pad = 20))
     w
   })
@@ -928,7 +951,8 @@ server <- function(input, output, session) {
       tickfont = list(color = "black"),
       overlaying = "y",
       side = "right",
-      title = "Signal (ppb)")
+      title = "5-min Signal (ppb)",
+      showgrid = FALSE, showline = TRUE, mirror=TRUE)
     w <-
       plot_ly(
         spod_all_5_1,
@@ -940,20 +964,22 @@ server <- function(input, output, session) {
         mode = "markers",  showlegend = T, marker = list(color = "orange", size = 10, opacity = 0.8)) %>%
       layout(showlegend = T,
              yaxis = list(title = " ", range = c(-4,6), tickfont = list(color = "white"),
-                          zeroline = FALSE),
+                          zeroline = FALSE, showgrid = FALSE, showline = TRUE, mirror=TRUE),
              legend = list(
                orientation = "h",
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M")
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+             scene = list(xaxis = list(showgrid = F),
+                          yaxis = list(showgrid = F))
       )
    
     w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
-      xaxis = list(title="Date"),
-      yaxis = list(title="Calibration"),
+      xaxis = list(title="Date", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+      yaxis = list(title="Calibration", showgrid = FALSE, showline = TRUE, mirror=TRUE),
       margin = list(l = 50, t = 50, b =50, r = 100, pad = 20))
     
     w
