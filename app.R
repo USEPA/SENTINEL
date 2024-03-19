@@ -5,50 +5,49 @@
 
 ##########################################################
 
-# M.K. MacDonald -//- ORD/CEMM/AMCD/SFSB -//- macdonald.megan@epa.gov
+# M.K. MacDonald  //  ORD/CEMM/AMCD/SFSB  //  macdonald.megan@epa.gov
 
 # Rev. 1.0: MARCH 2024
 
 # This is a Shiny web application. You can run the application by clicking the 'Run App' button above.
 
 # Note this software is not yet in final form. Please direct any questions or bug reports to the email above.
+##########################################################
+
+
+
 
 ##########################################################
 options(install.packages.check.source = "no")
 
-library(shiny)  
-library(data.table)  
-library(stringr)  
-library(leaflet)  
-library(shinydashboard)  
-library(shinycssloaders)
-library(DT)  
-library(openair)
-library(lattice)
-library(plotly)  
-library(tidyverse)
-library(lubridate)  
-library(ggpubr)
-library(quantreg)  
-library(splines2)  
-library(splines)  
-library(rhandsontable)
-library(zoo)
-
-library(tinytex)
-# tinytex::install_tinytex()  ## make sure this is run the first time running the app
-library(knitr)
-library(kableExtra)
-library(tidyverse)
-library(rmarkdown)
-
-library(htmltools)
-library(devtools)  
+#app.R
+require(shiny)  
+require(dplyr)
+require(tidyverse)
+require(lubridate)
+require(data.table)  
+require(stringr)  
+require(leaflet)  
+require(shinydashboard)  
+require(shinycssloaders)
+require(DT)  
+require(openair)
+require(lattice)
+require(plotly)  
+require(rhandsontable)
+require(kableExtra)
+require(rmarkdown)
+require(htmltools)
+require(devtools)  
 #install_github("davidcarslaw/openairmaps")  ## make sure this is run the first time running the app
-library(openairmaps)  
+require(openairmaps)  
 
-# H. Brantley Functions
+# getBaseline Functions
 source("getBaseline.R") ## found in app folder
+require(zoo)
+require(quantreg) 
+require(zoo)
+require(splines) 
 
 # code version
 version <- "1.0"
@@ -114,6 +113,12 @@ ui <- dashboardPage( ###################################################### buil
     #                             }
     #                             '))),
 
+    
+    tags$head( 
+      tags$style(HTML(".main-sidebar { font-size: 20px; }")) #change the font size to 20
+    ),
+    
+    
     tabItems(
       tabItem(tabName = "QAflagging", ############################ build QA FLAGGING page
               h2("QA Flags"),
@@ -164,17 +169,17 @@ ui <- dashboardPage( ###################################################### buil
       tabItem(tabName = "home", ################################## build DASHBOARD page
               
               fluidRow(
-                column(9, 
+                column(7, 
                        uiOutput("spodselect")
                     
                 ),
-                column(2, 
-                       radioButtons("ws_select", label = "Remove low WS?", 
+                column(3, 
+                       radioButtons("ws_select", label = h4("Remove low WS?"),    
                                     choices = c("All Data", ">1 m/s"),
                                     selected = "All Data", inline=TRUE)
                 ),
-                column(1, 
-                       downloadButton("report", "Export"),
+                column(2, 
+                       downloadButton("report", "Export", class = "btn-lg"),
                 )
               ),
 
@@ -186,12 +191,12 @@ ui <- dashboardPage( ###################################################### buil
                 ## signal map 
                 
                 tabBox(
-                  title = "Signal Map",side = "right",  ### Signal Map Box
-                  tabPanel("Graph",
+                  title = h3("Signal Map"),side = "right",  ### Signal Map Box
+                  tabPanel(h4("Graph"),
                            fluidRow(leafletOutput("polarmap", height = "550px") %>% withSpinner(color = "#0dc5c1"),  height = "550px"),
                            textOutput("latlongtext"),
                   ),
-                  tabPanel("Controls", "Controls",
+                  tabPanel(h4("Controls"), "Controls",
                            sliderInput(
                              "windfilterInput",
                              label = h4("Wind Speed Filter:"),
@@ -218,8 +223,8 @@ ui <- dashboardPage( ###################################################### buil
                 # SDI plots box
                 
                 tabBox(
-                  title = "SDI plots", side = "right",   ### SDI plots box
-                  tabPanel("SDI",
+                  title = h3("SDI plots"), side = "right",   ### SDI plots box
+                  tabPanel(h4("SDI"),
                            fluidRow(
                              box(
                                selectInput(
@@ -238,7 +243,7 @@ ui <- dashboardPage( ###################################################### buil
                   ),
                   
                   
-                  tabPanel("Freq",
+                  tabPanel(h4("Freq"),   ######################
                            fluidRow(
                              box(
                                selectInput(
@@ -257,7 +262,7 @@ ui <- dashboardPage( ###################################################### buil
                            ),
                   
        
-                  tabPanel("Wind Rose",
+                  tabPanel(h4("Wind Rose"),
                            fluidRow(
                              box(plotOutput("WR") %>% withSpinner(color = "#0dc5c1"),
                              height = "550px", width = "600px")), height = "550px", width = "600px")),
@@ -265,25 +270,22 @@ ui <- dashboardPage( ###################################################### buil
                 height = "550px", width = "600px"
               ),
               
-            
-              br(),
-              br(),
               br(),
               
               fluidRow( ### Time Series plots box
                 tabBox(
-                  title = "Time Series",side = "right",
-                  tabPanel("Baseline Fit", "Baseline Fit: Raw signal trace (5 minute values) plotted in black with baseline fit (df = 4) plotted in red",
+                  title = h3("Time Series"),side = "right",
+                  tabPanel(h4("Baseline Fit"), h4("Baseline Fit: Raw signal trace (5 minute values) plotted in black with baseline fit (df = 4) plotted in red"), ###########################
                            plotlyOutput("BCplot")),
-                  tabPanel("Wind Direction", "Wind Direction: Baseline corrected signal trace (5 minute values) plotted in black with wind direction plotted in orange (5 minute values)",
+                  tabPanel(h4("Wind Direction"), h4("Wind Direction: Baseline corrected signal trace (5 minute values) plotted in black with wind direction plotted in orange (5 minute values)"),
                            plotlyOutput("windplot")),
-                  tabPanel("Calibrations", "Calibrations: Baseline corrected signal trace (5 minute values) plotted in black with user-reported calibration periods plotted as shaded regions, if collected during this time frame",
+                  tabPanel(h4("Calibrations"), h4("Calibrations: Baseline corrected signal trace (5 minute values) plotted in black with user-reported calibration periods plotted as shaded regions, if collected during this time frame"),
                            plotlyOutput("CALplot")),
-                  tabPanel("Relative Humidity", "RH: Baseline corrected signal trace (5 minute values) plotted in black with Relative Humidity (%) plotted in purple",
+                  tabPanel(h4("Relative Humidity"), h4("RH: Baseline corrected signal trace (5 minute values) plotted in black with Relative Humidity (%) plotted in purple"),
                            plotlyOutput("RHplot")),
-                  tabPanel("Temperature", "Temperature: Baseline corrected signal trace (5 minute values) plotted in black with temperature (deg C) plotted in blue",
+                  tabPanel(h4("Temperature"), h4("Temperature: Baseline corrected signal trace (5 minute values) plotted in black with temperature (deg C) plotted in blue"),
                            plotlyOutput("Tplot")),
-                  tabPanel("Can Triggers", "Canister Triggers: Baseline corrected signal trace (5 minute values) plotted in black with canister triggers plotted as points, if collected during this time frame",
+                  tabPanel(h4("Can Triggers"), h4("Canister Triggers: Baseline corrected signal trace (5 minute values) plotted in black with canister triggers plotted as points, if collected during this time frame"),
                            plotlyOutput("canplot")), 
                  width = 12
                 ), width = 12
@@ -478,7 +480,7 @@ server <- function(input, output, session) {
       for (i in 1:numfiles)
       {
         Data_sensit <- suppressMessages(fread(input$files[[i, 'datapath']], skip = "Local Date Time", fill = TRUE))
-        Data_sensit$time <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S", tz = "America/New_York")
+        Data_sensit$time <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S")  #, tz = "America/New_York"
         
         ##################### Complete quick Auto QA scan
         ##### look for QA col, if not there, add it
@@ -542,7 +544,7 @@ server <- function(input, output, session) {
             QA = paste(unique(QA), collapse = ', ')
           )
         # calc MDL
-        Data_sensit_5$MDL <- 3 * median(Data_sensit_5$pid.sd)
+       # Data_sensit_5$MDL <- 3 * median(Data_sensit_5$pid.sd)
         #revert wind back to ws and wd
         Data_sensit_5$wd <- atan2(-Data_sensit_5$u.wind, -Data_sensit_5$v.wind)*180/pi + 180
         Data_sensit_5$ws <- sqrt(Data_sensit_5$u.wind^2 + Data_sensit_5$v.wind^2)
@@ -551,6 +553,7 @@ server <- function(input, output, session) {
         node <- str_match(a, "Export_\\s*(.*?)\\s*_20")
         ID <- node[,2]
         Data_sensit_5$SN <- paste0("SPOD", ID)
+        Data_sensit_5$day <- str_sub(Data_sensit_5$time, start = 1, end = 10)
         # Roll up data
         filelist[[i]] <- Data_sensit_5
       }
@@ -569,12 +572,21 @@ server <- function(input, output, session) {
   output$contents5 <-  DT::renderDataTable({
     req(spod_all_5min())
     x <- as.data.frame(spod_all_5min())
+    
+    # x <- x %>% as.data.frame() %>% 
+    #   dplyr::arrange(time)
+    # x$time <- ymd_hms(as.character(x$time), tz = "America/New_York")
+    # x$time <- force_tz(x$time, tzone = "America/New_York")
+    x$time <- as.character(strptime(x$time, "%Y-%m-%d %H:%M"))
     y <- x %>%
       # mutate(Serial.number = factor(SN)) %>%
-      group_by(SN) %>%
+      group_by(SN, day) %>%
       dplyr::summarize(Count = n(),
-                       lat = unique(lat),
-                       long = unique(long))
+                       Data_Comp = (Count/288) * 100,
+                       Lat = unique(lat),
+                       Long = unique(long),
+                       Start = min(time, na.rm = TRUE), 
+                       End = max(time, na.rm = TRUE))
     DT::datatable(y, options = list(dom = 't'))
   })
   ############################################################################## DASHBOARD outputs
@@ -699,15 +711,22 @@ server <- function(input, output, session) {
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
+    
+    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
+    #   dplyr::arrange(time)
+    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
+    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
+    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
+    
     p <-
       plot_ly(
         spod_all_5_1,
         x = ~ time,
-        y = ~rawPID.ppb,
+        y = ~rawPID.ppb, 
         type = "scatter", name = "Raw Signal",
         hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
         hoverinfo = "text",
-        mode = "lines",  showlegend = T, connectgaps = FALSE, line = list(color = "black")) %>%
+        mode = "lines",  showlegend = T, connectgaps = F, line = list(color = "black")) %>%
       layout(showlegend = T,
              yaxis = list(title = "5-min Signal (ppb)", showgrid = FALSE, showline = TRUE, mirror=TRUE),
              legend = list(
@@ -715,7 +734,7 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
              scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
                           yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
@@ -733,6 +752,12 @@ server <- function(input, output, session) {
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
+    
+    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
+    #   dplyr::arrange(time)
+    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
+    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
+    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
     
     ay <- list(
       tickfont = list(color = "black"),
@@ -756,7 +781,7 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, mirror=TRUE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE, mirror=TRUE),
              scene = list(xaxis = list(showgrid = F,showline = TRUE, mirror=TRUE),
                           yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
@@ -778,6 +803,12 @@ server <- function(input, output, session) {
     spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect)
+    
+    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
+    #   dplyr::arrange(time)
+    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
+    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
+    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
     
     spod_all_5_1$trigactiveflag <- as.character(spod_all_5_1$trigactiveflag)
     spod_all_5_1$port1 <- ifelse(grepl("1", spod_all_5_1$trigactiveflag), -1, NA)
@@ -810,7 +841,7 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE,showline = TRUE, mirror=TRUE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE,showline = TRUE, mirror=TRUE),
              scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
                           yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
@@ -854,6 +885,13 @@ server <- function(input, output, session) {
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
+    
+    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
+    #   dplyr::arrange(time)
+    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
+    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
+    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
+    
     ay <- list(
       tickfont = list(color = "black"),
       overlaying = "y",
@@ -875,7 +913,7 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE),
              scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
                           yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
@@ -899,6 +937,12 @@ server <- function(input, output, session) {
                            spod_all_5$SN == input$spodselect &
                              spod_all_5$QA == 0)
     
+    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
+    #   dplyr::arrange(time)
+    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
+    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
+    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
+    
     ay <- list(
       tickfont = list(color = "black"),
       overlaying = "y",
@@ -920,7 +964,7 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE),
              scene = list(xaxis = list(showgrid = F),
                           yaxis = list(showgrid = F))
       )
@@ -942,6 +986,12 @@ server <- function(input, output, session) {
     spod_all_5 <- as.data.frame(spod_all_5min_active())
     spod_all_5_1 <- subset(spod_all_5,
                            spod_all_5$SN == input$spodselect )
+    
+    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
+    #   dplyr::arrange(time)
+    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
+    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
+    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
     
     spod_all_5_1$QA <- as.character(spod_all_5_1$QA)
     spod_all_5_1$Calibration <- ifelse(grepl("100", spod_all_5_1$QA), 1, NA)   
@@ -970,7 +1020,7 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
              scene = list(xaxis = list(showgrid = F),
                           yaxis = list(showgrid = F))
       )
@@ -1025,8 +1075,8 @@ server <- function(input, output, session) {
     req(input$file1)
     duration <- as.numeric(input$durationInput)
     frequency_sec <- as.numeric(input$freqfile)
-    start_time <- as.POSIXct(input$singlenodestarttime, tz = "America/New_York")
-    end_time <- as.POSIXct(input$singlenodeendtime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$singlenodestarttime) #, tz = "America/New_York"
+    end_time <- as.POSIXct(input$singlenodeendtime) # , tz = "America/New_York"
 
     inFile <- input$file1
     if (is.null(inFile)) {
@@ -1037,7 +1087,7 @@ server <- function(input, output, session) {
       for (i in 1:numfiles)
       {
         Data_sensit <- fread(input$file1[[i, 'datapath']], select = c(2:19), skip = 2, fill = TRUE)
-        Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S", tz = "America/New_York")
+        Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S") #, tz = "America/New_York"
         #remove baseline #######
         Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 10))
         # Calc u wind and v wind
@@ -1105,8 +1155,8 @@ server <- function(input, output, session) {
     req(getcaldata())
     req(input$singlenodestarttime)
     req(input$singlenodeendtime)
-    start_time <- as.POSIXct(input$singlenodestarttime, tz = "America/New_York")
-    end_time <- as.POSIXct(input$singlenodeendtime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$singlenodestarttime) #, tz = "America/New_York"
+    end_time <- as.POSIXct(input$singlenodeendtime) #, tz = "America/New_York"
     xx1 <- getcaldata()
     xx1 <- as.data.frame(xx1)
     xx <- xx1[-c(15),]
@@ -1171,8 +1221,8 @@ server <- function(input, output, session) {
     req(getcaldata())
     req(input$singlenodestarttime)
     req(input$singlenodeendtime)
-    start_time <- as.POSIXct(input$singlenodestarttime, tz = "America/New_York")
-    end_time <- as.POSIXct(input$singlenodeendtime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$singlenodestarttime) #, tz = "America/New_York"
+    end_time <- as.POSIXct(input$singlenodeendtime) #, tz = "America/New_York"
     start.end.time <- paste0(substr(start_time, start = 11, stop = 23), " to",
                              substr(end_time, start = 11, stop = 23))
     start.end.time
@@ -1198,7 +1248,7 @@ server <- function(input, output, session) {
   
   date_1 <- function(){ # create output for RMD
     req(input$singlenodestarttime)
-    start_time <- as.POSIXct(input$singlenodestarttime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$singlenodestarttime) #, tz = "America/New_York"
     date <- paste0(substr(start_time, start = 1, stop = 10))
     date
   }
@@ -1206,8 +1256,8 @@ server <- function(input, output, session) {
   QATableID_1 <- function(){ # create output for RMD
     req(input$singlenodestarttime)
     req(input$singlenodeendtime)
-    start_time <- as.POSIXct(input$singlenodestarttime, tz = "America/New_York")
-    end_time <- as.POSIXct(input$singlenodeendtime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$singlenodestarttime) #, tz = "America/New_York"
+    end_time <- as.POSIXct(input$singlenodeendtime) #, tz = "America/New_York"
     start.end.time <- start.end.time_1()
     Date <- date_1()
     Serial.number <- SN_1()
@@ -1250,8 +1300,8 @@ server <- function(input, output, session) {
     duration <- as.numeric(input$durationInput2)
     frequency_sec <- as.numeric(input$freqfile2)
     
-    start_time <- as.POSIXct(input$multinodestarttime, tz = "America/New_York")
-    end_time <- as.POSIXct(input$multinodeendtime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
+    end_time <- as.POSIXct(input$multinodeendtime) #, tz = "America/New_York"
     inFile <- input$file1multi
     if (is.null(inFile)) {
       return(NULL)
@@ -1261,7 +1311,7 @@ server <- function(input, output, session) {
       for (i in 1:numfiles)
       {
         Data_sensit <- fread(input$file1multi[[i, 'datapath']], select = c(2:19), skip = 2, fill = TRUE)
-        Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S", tz = "America/New_York")
+        Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S") #, tz = "America/New_York"
         #remove baseline #######
         Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 10))
         # Calc u wind and v wind
@@ -1332,8 +1382,8 @@ server <- function(input, output, session) {
     req(input$freqfile2)
     duration <- as.numeric(input$durationInput2)
     frequency_sec <- as.numeric(input$freqfile2)
-    start_time <- as.POSIXct(input$multinodestarttime, tz = "America/New_York")
-    end_time <- as.POSIXct(input$multinodeendtime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
+    end_time <- as.POSIXct(input$multinodeendtime) # , tz = "America/New_York"
     inFile <- input$file2multi
     if (is.null(inFile)) {
       return(NULL)
@@ -1382,8 +1432,8 @@ server <- function(input, output, session) {
     req(getcaldata2())
     req(input$multinodestarttime)
     req(input$multinodeendtime)
-    start_time <- as.POSIXct(input$multinodestarttime, tz = "America/New_York")
-    end_time <- as.POSIXct(input$multinodeendtime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
+    end_time <- as.POSIXct(input$multinodeendtime) #, tz = "America/New_York"
     
     xx1 <- getcaldata1() # build matrix 1
     xx1 <- xx1[,c(1:6)]
@@ -1415,8 +1465,8 @@ server <- function(input, output, session) {
   
   start.end.time2 <- function(){ # create output for RMD
     req(getcaldata1())
-    start_time <- as.POSIXct(input$multinodestarttime, tz = "America/New_York")
-    end_time <- as.POSIXct(input$multinodeendtime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
+    end_time <- as.POSIXct(input$multinodeendtime) #, tz = "America/New_York"
     start.end.time <- paste0(substr(start_time, start = 11, stop = 23), " to",
                              substr(end_time, start = 11, stop = 23))
     start.end.time
@@ -1459,14 +1509,14 @@ server <- function(input, output, session) {
   }
   
   date2 <- function(){ # create output for RMD
-    start_time <- as.POSIXct(input$multinodestarttime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
     date <- paste0(substr(start_time, start = 1, stop = 10))
     date
   }
   
   QATableID2 <- function(){ # create output for RMD
-    start_time <- as.POSIXct(input$multinodestarttime, tz = "America/New_York")
-    end_time <- as.POSIXct(input$multinodeendtime, tz = "America/New_York")
+    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
+    end_time <- as.POSIXct(input$multinodeendtime) #, tz = "America/New_York"
     start.end.time <- start.end.time2()
     Date <- date2()
     Serial.number1 <- SN1()
@@ -1509,8 +1559,16 @@ server <- function(input, output, session) {
     spod_all_5_tab <-  spod_all_5min()
     spod_all_5_tab <- spod_all_5_tab %>%
       mutate_if(is.numeric, round, digits = 2)
-    DT::datatable(spod_all_5_tab,filter = 'top',
-                  options = list(scrollX = TRUE)) %>% formatDate(1, "toLocaleString")
+    
+    spod_all_5_tab$time <- as.character(strptime(spod_all_5_tab$time, "%Y-%m-%d %H:%M"))
+    spod_all_5_tab <- spod_all_5_tab %>% drop_na(time)
+    
+    DT::datatable(spod_all_5_tab,filter = 'top',  
+                  options = list(
+                    autoWidth = FALSE, scrollX = TRUE,
+                    pageLength = 25)
+    #%>% formatDate(1, "toLocaleString")
+                  )
   })
   
   output$Download <-
