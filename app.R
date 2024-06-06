@@ -5,57 +5,73 @@
 
 ##########################################################
 
-# M.K. MacDonald  //  ORD/CEMM/AMCD/SFSB  //  macdonald.megan@epa.gov
+# M.K. MacDonald -//- ORD/CEMM/AMCD/SFSB -//- macdonald.megan@epa.gov
 
-# Rev. 1.0: MARCH 2024
+# Rev. 1.1: June 2024
 
 # This is a Shiny web application. You can run the application by clicking the 'Run App' button above.
 
 # Note this software is not yet in final form. Please direct any questions or bug reports to the email above.
-##########################################################
-
-
-
 
 ##########################################################
 options(install.packages.check.source = "no")
 
-#app.R
-require(shiny)  
-require(dplyr)
-require(tidyverse)
-require(lubridate)
-require(data.table)  
-require(stringr)  
-require(leaflet)  
-require(shinydashboard)  
-require(shinycssloaders)
-require(DT)  
-require(openair)
-require(lattice)
-require(plotly)  
-require(rhandsontable)
-require(kableExtra)
-require(rmarkdown)
-require(htmltools)
-require(devtools)  
+# install pkgs
+library(shiny)
+library(dplyr)
+library(DT)
+library(shinyWidgets)
+library(janitor)
+library(shinydashboard)  
+library(shinycssloaders)
+library(rhandsontable)
+library(data.table) 
+library(stringr)  
+library(rhandsontable)
+library(leaflet)  
+library(openair)
+library(lattice)
+library(plotly)  
+library(tidyverse)
+library(lubridate)  
+library(ggpubr)
+
+library(tinytex)
+# tinytex::install_tinytex()  ## make sure this is run the first time running the app
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+library(rmarkdown)
+
+library(htmltools)
+library(devtools)  
 #install_github("davidcarslaw/openairmaps")  ## make sure this is run the first time running the app
-require(openairmaps)  
+library(openairmaps)  
 
-# getBaseline Functions
+# baseline Functions
+library(quantreg)  
+library(splines2)  
+library(splines)  
+library(zoo)
 source("getBaseline.R") ## found in app folder
-require(zoo)
-require(quantreg) 
-require(zoo)
-require(splines) 
 
-# code version
-version <- "1.0"
-##########################################################
+options(scipen=999)  # turn off scientific notation in app 
+
+
+
+
+
+
+
+
+
 
 
 
 ########################################################### app starts here:
+
+
+
 
 # User Interface Build
 
@@ -68,18 +84,18 @@ ui <- dashboardPage( ###################################################### buil
                  style="display: block; margin-left: auto; margin-right: auto;"),
              href="https://www.epa.gov/air-research/next-generation-emission-measurement-ngem-research-fugitive-air-pollution"),
       menuItem(
-        "QA Flagging",
-        tabName = "QAflagging",
+        "Data Upload",
+        tabName = "DataUpload",
         icon = icon("fas fa-turn-up")
       ),
       menuItem(
-        "Data Upload",
-        tabName = "dataupload",
-        icon = icon("fas fa-turn-up")
+        "Data Check",
+        tabName = "DataCheck",
+        icon = icon("fas fa-check")
       ),
       menuItem( # make side bar menu items
         "Dashboard",
-        tabName = "home",
+        tabName = "Dashboard",
         icon = icon("fas fa-house")
       ),
       menuItem( # make side bar menu items
@@ -112,91 +128,118 @@ ui <- dashboardPage( ###################################################### buil
     #                             background-color: #FFFFFF;
     #                             }
     #                             '))),
-
+    setBackgroundColor("ghostwhite"),
     
     tags$head( 
       tags$style(HTML(".main-sidebar { font-size: 20px; }")) #change the font size to 20
     ),
     
-    
     tabItems(
-      tabItem(tabName = "QAflagging", ############################ build QA FLAGGING page
-              h2("QA Flags"),
+      # DATA UPLOAD PAGE  -------------------------------------------------------
+      tabItem(tabName = "DataUpload", 
+              tags$style(type="text/css",
+                         ".shiny-output-error { visibility: hidden; }",
+                         ".shiny-output-error:before { visibility: visible; content: 'Timestamp and Sensor ID must be identified to generate Table'; }"
+              ),
+              h4("Upload one or more data files from any number of sensors of the same type in .csv format. 
+                 Files should all have the same structure but can be from different unit IDs. 
+                 Use column naming tool to indicate which columns are present. Sensor ID, Timestamp, and Signal are required. "),
+              fluidRow(style = "background-color:ghostwhite;",
+                       column(6, 
+                              #upload files
+                              fileInput("files",
+                                        label = h4("Upload"),
+                                        multiple = TRUE)
+                       ),
+                       column(6, 
+                              br(),
+                              br(),
+                              downloadButton('saveQAfile',"Download Compiled Data"),
+                              
+                       )
+              ),
               br(),
-              h4("File must have the following naming convention: "),
-              div("SPOD_Data_Export_1181_2022-07-10.csv ", style = "color:blue; text-align:center; font-size:20px;"),
-              h4("Where SPOD_Data_Export_ is automatically generated by Sensit Connect, 1181 is the Sensor ID, and 2022-07-10 is the date of the data collection. These values will be parsed by the processing code, so it is important to name the files in this way exactly."),
-              br(),
-              fileInput("QAfiles",
-                        label = "Upload downloaded Sensit Connect file here",
-                        multiple = TRUE),
-              br(),
-              h4("Flag QA by Time:"), 
-              h4("These flags indicate time periods where the user knows there is a reason to discount that data. 
-                 The autoQA features in the software will look for repeated values or offscreen values and flag those automatically when the data is read in. 
-                 Make edits in the table below using the dropdown menu for the QA column and typing the value into the box below to add offsets to the wind direction column (flag 7). 
-                 Download the .csv file and read it in along with other downloaded Sensit Connect files to bring the QA edits into the SENTINEL.
-                 Add the following flags in the QA column to designate specified times periods to be ignored in future analysis of this data file. "),
-              h5("100: Calibration"),
-              h5("102: Interferance"),
-              h5("103: Maintenance"),
-              h5("104: Malfunction"),
-              h5("105: Other"),
-              h5("106: Wind Direction Interference (use for blocked wind directions) *Sort by wind direction"),
-              h5("107: Wind Direction Error (use for misaligned anemometer): Use text input box below:"),
-              textInput("winddircalc",  "Enter addition to WD (deg.)", value = 0),
-              h5("Note: changing the wind calc will reset QA flags, do this first."),
-              br(),
-              rHandsontableOutput("hot"),
-              br(),
-              downloadButton('saveQAfile',"Download QA .CSV data file"),
-      ),
-
-      tabItem(tabName = "dataupload", ############################ build DATA UPLOAD page
-              h2("Data Upload"),
-              br(),
-              h4("File must have the following naming convention: "),
-              div("SPOD_Data_Export_1181_2022-07-10.csv ", style = "color:blue; text-align:center; font-size:20px;"),
-              h4("Where SPOD_Data_Export_ is automatically generated by Sensit Connect, 1181 is the Sensor ID, and 2022-07-10 is the date of the data collection. These values will be parsed by the processing code, so it is important to name the files in this way exactly."),
-              br(),
-              fileInput("files",
-                        label = "Upload downloaded Sensit Connect file(s) here",
-                        multiple = TRUE),
-              br(),
-              DTOutput(outputId = "contents5")%>% withSpinner(color = "#0dc5c1")
+              fluidRow(style = "background-color:ghostwhite;",
+                       column(4, 
+                              tabsetPanel(
+                                #Required Cols
+                                tabPanel(
+                                  h4("ID/Time"),
+                                  uiOutput("ID_column"),
+                                  uiOutput("Time_column"),
+                                  uiOutput("Time_Zone"),
+                                  
+                                ),
+                                tabPanel(
+                                  h4("Signal"),
+                                  uiOutput("Signal_column"),
+                                  selectInput("Signal_units", "Signal Units?", c("ppm", "ppb")) 
+                                ),
+                                tabPanel(
+                                  h4("Met"),
+                                  uiOutput("WS_column"),
+                                  selectInput("WS_units", "WS Units?", c("mph" = 2.237, "m/s" = 1), selected = 1),
+                                  uiOutput("WD_column"),
+                                  #numericInput("WD_offset_val", label = h5("Add Wind Direction offset?"), value = 0)
+                                ),
+                                # Optional Cols
+                                tabPanel(
+                                  h4("Optional Data"),
+                                  uiOutput("Temp_column"),
+                                  selectInput("Temp_units", "Temperature Units?", c("C", "F")),
+                                  uiOutput("RH_column"),
+                                  uiOutput("Lat_column"),
+                                  uiOutput("Long_column"), 
+                                  uiOutput("Can_column")
+                                )
+                              )
+                       ),
+                       
+                       column(8, style = "background-color:ghostwhite;",
+                              #display df
+                              # fluidRow(column(align = "center", width = 12, DT::dataTableOutput("table", width = 700)))
+                              rHandsontableOutput("upload_table")
+                       )
+                       
+              )
+              
       ),
       
-      tabItem(tabName = "home", ################################## build DASHBOARD page
+      # DATA CHECK PAGE ---------------------------------------------------------
+      tabItem(tabName = "DataCheck", 
+              h3("Data Check"),
+              br(),
+              # summary table showing canisters/QA/day ranges of spod units and lat/long
+              fluidRow(column(align = "center", width = 12, withSpinner(DT::dataTableOutput("summarytable", width = 900))))
+              
+              
+      ),
+      
+      # DASHBOARD PAGE ----------------------------------------------------------
+      tabItem(tabName = "Dashboard", 
               
               fluidRow(
-                column(7, 
-                       uiOutput("spodselect")
-                    
+                column(9, 
+                       uiOutput("unitselect")
+                       
                 ),
-                column(3, 
-                       radioButtons("ws_select", label = h4("Remove low WS?"),    
+                column(2, 
+                       radioButtons("ws_select", label = "Remove low WS?", 
                                     choices = c("All Data", ">1 m/s"),
                                     selected = "All Data", inline=TRUE)
                 ),
-                column(2, 
-                       downloadButton("report", "Export", class = "btn-lg"),
+                column(1, 
+                       downloadButton("report", "Export"),
                 )
               ),
-
-              ## SDI row
-              
-              
-              fluidRow(
-                
-                ## signal map 
-                
-                tabBox(
-                  title = h3("Signal Map"),side = "right",  ### Signal Map Box
-                  tabPanel(h4("Graph"),
+              fluidRow(  ## SDI row
+                tabBox( ## signal map 
+                  title = "Signal Map",side = "right",  ### Signal Map Box
+                  tabPanel("Graph",
                            fluidRow(leafletOutput("polarmap", height = "550px") %>% withSpinner(color = "#0dc5c1"),  height = "550px"),
                            textOutput("latlongtext"),
                   ),
-                  tabPanel(h4("Controls"), "Controls",
+                  tabPanel("Controls", "Controls",
                            sliderInput(
                              "windfilterInput",
                              label = h4("Wind Speed Filter:"),
@@ -218,13 +261,9 @@ ui <- dashboardPage( ###################################################### buil
                            height = "500px"
                   ), height = "500px"
                 ),
-                
-                
-                # SDI plots box
-                
-                tabBox(
-                  title = h3("SDI plots"), side = "right",   ### SDI plots box
-                  tabPanel(h4("SDI"),
+                tabBox(# SDI plots box
+                  title = "SDI plots", side = "right",   ### SDI plots box
+                  tabPanel("SDI",
                            fluidRow(
                              box(
                                selectInput(
@@ -239,11 +278,9 @@ ui <- dashboardPage( ###################################################### buil
                                  selected = "median"
                                ),
                                plotOutput("SDI")%>% withSpinner(color="#0dc5c1"),
-                                 height = "550px", width = "600px")), height = "550px", width = "600px"
+                               height = "550px", width = "600px")), height = "550px", width = "600px"
                   ),
-                  
-                  
-                  tabPanel(h4("Freq"),   ######################
+                  tabPanel("Freq", #frequency plot
                            fluidRow(
                              box(
                                selectInput(
@@ -259,41 +296,41 @@ ui <- dashboardPage( ###################################################### buil
                                ),
                                plotOutput("FREQ") %>% withSpinner(color="#0dc5c1"),
                                height = "550px", width = "600px")), height = "550px", width = "600px"
-                           ),
-                  
-       
-                  tabPanel(h4("Wind Rose"),
+                  ),
+                  tabPanel("Wind Rose", #Wind Rose plot
                            fluidRow(
                              box(plotOutput("WR") %>% withSpinner(color = "#0dc5c1"),
-                             height = "550px", width = "600px")), height = "550px", width = "600px")),
-                
-                height = "550px", width = "600px"
+                                 height = "550px", width = "600px")), height = "550px", width = "600px")),
+                                 height = "550px", width = "600px"
               ),
-              
               br(),
-              
+              br(),
+              br(),
               fluidRow( ### Time Series plots box
                 tabBox(
-                  title = h3("Time Series"),side = "right",
-                  tabPanel(h4("Baseline Fit"), h4("Baseline Fit: Raw signal trace (5 minute values) plotted in black with baseline fit (df = 4) plotted in red"), ###########################
+                  title = "Time Series",side = "right",
+                  tabPanel("Baseline Fit", "Baseline Fit: Raw signal trace (5 minute values) plotted in black with baseline fit (df = 10) plotted in red",
                            plotlyOutput("BCplot")),
-                  tabPanel(h4("Wind Direction"), h4("Wind Direction: Baseline corrected signal trace (5 minute values) plotted in black with wind direction plotted in orange (5 minute values)"),
+                  tabPanel("Wind Direction", "Wind Direction: Baseline corrected signal trace (5 minute values) plotted in black with wind direction plotted in green (5 minute values)",
                            plotlyOutput("windplot")),
-                  tabPanel(h4("Calibrations"), h4("Calibrations: Baseline corrected signal trace (5 minute values) plotted in black with user-reported calibration periods plotted as shaded regions, if collected during this time frame"),
+                  tabPanel("Wind Speed", "Wind Speed: Baseline corrected signal trace (5 minute values) plotted in black with wind direction plotted in gray (5 minute values)",
+                           plotlyOutput("windspeedplot")),
+                  tabPanel("Calibrations", "Calibrations: Baseline corrected signal trace (5 minute values) plotted in black with user-reported calibration periods plotted as points, if collected during this time frame",
                            plotlyOutput("CALplot")),
-                  tabPanel(h4("Relative Humidity"), h4("RH: Baseline corrected signal trace (5 minute values) plotted in black with Relative Humidity (%) plotted in purple"),
+                  tabPanel("Relative Humidity", "RH: Baseline corrected signal trace (5 minute values) plotted in black with Relative Humidity (%) plotted in purple",
                            plotlyOutput("RHplot")),
-                  tabPanel(h4("Temperature"), h4("Temperature: Baseline corrected signal trace (5 minute values) plotted in black with temperature (deg C) plotted in blue"),
+                  tabPanel("Temperature", "Temperature: Baseline corrected signal trace (5 minute values) plotted in black with temperature (deg C) plotted in blue",
                            plotlyOutput("Tplot")),
-                  tabPanel(h4("Can Triggers"), h4("Canister Triggers: Baseline corrected signal trace (5 minute values) plotted in black with canister triggers plotted as points, if collected during this time frame"),
+                  tabPanel("Can Triggers", "Canister Triggers: Baseline corrected signal trace (5 minute values) plotted in black with canister triggers plotted as points, if collected during this time frame",
                            plotlyOutput("canplot")), 
-                 width = 12
+                  width = 12
                 ), width = 12
-              ),
+              ), 
               
       ),
-      tabItem( ##################################################### build DATA TABLE page
-        tabName = "DataTable", # make data table page
+      # DATA TABLE PAGE ---------------------------------------------------------
+      tabItem( 
+        tabName = "DataTable", 
         h4("Table Results"),
         br(),
         downloadButton('Download',"Download .CSV data"),
@@ -301,19 +338,12 @@ ui <- dashboardPage( ###################################################### buil
         br(),
         DTOutput(outputId = "datatab", width = 1000)
       ),
-      
-      tabItem(##################################################### build SINGLE CALIBRATION page
+      # CAL TABLE PAGE ----------------------------------------------------------
+      tabItem(
         tabName = "singlenode",
         h2("QA Table for 1 Unit"),
         br(),
-        h4("File must have the following naming convention: "),
-        div("SPOD_Data_Export_1181_2022-07-10.csv ", style = "color:blue; text-align:center; font-size:20px;"),
-        h4("Where SPOD_Data_Export_ is automatically generated by Sensit Connect, 1181 is the Sensor ID, and 2022-07-10 is the date of the data collection. These values will be parsed by the processing code, so it is important to name the files in this way exactly."),
-        br(),
-        fileInput("file1",
-                  label= h4("Upload 10 second raw .CSV file here"),
-                  multiple = FALSE),
-        br(),
+        uiOutput("calunitselect"),   
         uiOutput("singlenodestarttime"),
         uiOutput("singlenodeendtime"),
         br(),
@@ -327,73 +357,66 @@ ui <- dashboardPage( ###################################################### buil
                      selected = "10 sec"),
         downloadButton("singlenodereport", "Generate report"),
         box(tableOutput("draw_caltab"), width = 12)), 
-      tabItem(tabName = "multinode", ######################### build MULTI CALIBRATION page
-              h2("QA Table for 2 Collocated Units"),
+      ### add small plotly graph???
+      
+      # COLLOCATED CAL TABLE PAGE --------------------------------------------
+      tabItem(tabName = "multinode",
+              h2("Sensor Agreement"),
+              h5("QA Table for 2 co-located units during same time frame"),
               br(),
               br(),
-              h4("File must have the following naming convention: "),
-              div("SPOD_Data_Export_1181_2022-07-10.csv ", style = "color:blue; text-align:center; font-size:20px;"),
-              h4("Where SPOD_Data_Export_ is automatically generated by Sensit Connect, 1181 is the Sensor ID, and 2022-07-10 is the date of the data collection. These values will be parsed by the processing code, so it is important to name the files in this way exactly."),
-              br(),
-              fileInput("file1multi",
-                        label= h4("Upload 10 second processed .CSV file here"),
-                        multiple = FALSE),
-              fileInput("file2multi",
-                        label= h4("Upload 10 second processed .CSV file here"),
-                        multiple = FALSE),
-              br(),
-              uiOutput("multinodestarttime"),
-              uiOutput("multinodeendtime"),
-              br(),
-              radioButtons("durationInput2", h4("Select length of QA frame:"),
-                           choices = c("1 min" = 60, "1 hour" = 3600),
-                           selected = "1 min"),
-              radioButtons("freqfile2", h4("Select Frequency of sensor values:"),
-                           choices = c("10 sec" = 10,
-                                       "30 sec" = 30,
-                                       "1 min" = 60),
-                           selected = "10 sec"),
-              downloadButton("multinodereport", "Generate report"),
+              fluidRow(
+                column(6, 
+                       uiOutput("calunitselect1"),   
+                       uiOutput("calunitselect2")
+                       ),
+                column(6,
+                       uiOutput("multinodestarttime"),
+                       uiOutput("multinodeendtime"),
+                       downloadButton("multinodereport", "Generate report")
+                       )
+              ),
               box(tableOutput("draw_subcaltab"), width = 12)
+              
       ),
-      tabItem( ####################################################### build ABOUT page
-        tabName = "about",
-        fluidRow( width = 12,
-          box( width = 12,
-          br(),
-          HTML("<h3> <b>SENTINEL:</b> An application for automated fenceline sensor data analysis </h3>"),
-          br(),
-          h4(div(em("Purpose:"))),
-          br(),
-          h4("There is growing interest in fenceline monitoring around chemical facilities. 
+      
+      # ABOUT PAGE --------------------------------------------------------------
+      tabItem(tabName = "about",
+              fluidRow( width = 12,
+                        box( width = 12,
+                             br(),
+                             HTML("<h3> <b>SENTINEL:</b> An application for automated fenceline sensor data analysis </h3>"),
+                             br(),
+                             h4(div(em("Purpose:"))),
+                             br(),
+                             h4("There is growing interest in fenceline monitoring around chemical facilities. 
              Fenceline sensors used in these monitoring applications can collect large amounts 
              of concentration and meteorological data for extended time periods. The SENsor 
              InTellIgeNt Emissions Locator (SENTINEL) application helps users compile, process,
-             and analyze data from a specific commercial fenceline sensor that was based on the
-             EPA open-source SPod (sensor pod) design. This application delivers these 
+             and analyze data from fenceline sensors. This application delivers these 
              capabilities in a user-friendly interface that can combine and process daily data
              files from multi-sensor deployments, allowing users to gain insights from compiled
              sensor data over time. The SENTINEL app is one of the technologies developed under
              the Next Generation Emissions Measurements (NGEM) program. We awknowledge contributions
              from past and present contributors to this software: Halley Brantley, Yadong Xu,
              Wei Tang, and Gustavo Quieroz."),
-          br()
-          )
-        ),
-        
-        
-        fluidRow(
-          box( width = 12,
-               h4("Version 1.0 (Feb 2024)"),
-               br(),
-               h4("Contact:"),
-               h4("macdonald.megan@epa.gov"),
-               br(),
-               actionButton("pdf", "SENTINEL User Guide",class = "btn-success", class = "btn-lg", onclick = "window.open('SENTINEL Shiny App User Guide V1.pdf')"),
-               br()
+                             br()
+                        )
+              ),
+              
+              
+              fluidRow(
+                box( width = 12,
+                     h4("Version 1.0 (Feb 2024)"),
+                     br(),
+                     h4("Contact:"),
+                     h4("macdonald.megan@epa.gov"),
+                     br(),
+                     actionButton("pdf", "SENTINEL User Guide",class = "btn-success", class = "btn-lg", onclick = "window.open('SENTINEL Shiny App User Guide V1.pdf')"),
+                     br()
+                )
               )
-        )
-       
+              
       )
     )
   )
@@ -406,227 +429,385 @@ ui <- dashboardPage( ###################################################### buil
 
 
 
+# Start of server build
 
-# Server build 
-
-server <- function(input, output, session) {
-  options(shiny.maxRequestSize=50*1024^2) # extend file allowance
-  ############################################################################## QA FLAGGING outputs
-  ######################################################## Build QA Dataset
-  spod_all_QA <- reactive({
-    req(input$QAfiles)
-    inFile <- input$QAfiles
-    if (is.null(inFile)){
-      return(NULL)
-    } else {
-      numfiles = nrow(inFile)
-      filelist = list()
-      for (i in 1:numfiles)
-      {
-        Data_sensit <- fread(input$QAfiles[[i, 'datapath']], select = c(2:21), skip = 2, fill = TRUE)
-        Data_sensit$time <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S", tz = "America/New_York")
-        Data_sensit$QA <- 0
-        # Identify node and append
-        a <- input$QAfiles$name[[i]]
-        node <- str_match(a, "Export_\\s*(.*?)\\s*_20")
-        ID <- node[,2]
-        Data_sensit$SN <- ID
-        Data_sensit$lat <- round(Data_sensit$lat, 4)
-        Data_sensit$long <- round(Data_sensit$long, 4)
-        
-        # Roll up data
-        filelist[[i]] <- Data_sensit
-      }
-      do.call(rbind, filelist)
-    }
-  })
+server <- function(input, output) {
   
-  ######################################################## RHANDSONTAB (QA Table)
-  output$hot <- renderRHandsontable({
-    calc <- as.numeric(input$winddircalc)
-    spod_all_QA_static <- spod_all_QA()
-    spod_all_QA_static$ws_direction <- (((spod_all_QA_static$ws_direction + calc)*pi/360) %% pi)*360/pi
-    spod_all_QA_static[is.na(spod_all_QA_static)] = " "
-    spod_all_QA_static$time <- as.character(spod_all_QA_static$time)
-    spod_all_QA_static$`Local Date Time` <- as.character(spod_all_QA_static$`Local Date Time`)
-    
-    flags <- c(0,100,102,103,104,105,106,107)
-    rhandsontable(spod_all_QA_static, width = 850, height = 550)%>%
-      hot_col(col = "QA", type = "dropdown", source = flags)%>%
-      hot_col(col = "ws_direction", type = "autocomplete")%>%
-      hot_context_menu(allowRowEdit = FALSE, allowColEdit = FALSE)%>%
-      hot_cols(columnSorting = TRUE)
-  })
   
-  output$saveQAfile <- downloadHandler(
-    filename = function() { 
-      spod_all_QA_static <- spod_all_QA()
-      paste0("SPOD_Data_Export_", spod_all_QA_static$SN[1],"_", substr(spod_all_QA_static$time[1],1,10), "_QA.csv", sep="")
-    },
-    content = function(file) {
-      readr::write_csv(hot_to_r(input$hot), file)
-    }
-  )
-
-  ############################################################################## Data input multiple csv files
-  spod_all_5min <- reactive({
+  
+  # Data Upload Page Functions ----------------------------------------------
+  
+  
+  # read in files
+  test <- reactive({
     req(input$files)
+    #req(input$skip_val)
     inFile <- input$files
+    #skip_num <- input$skip_val
     if (is.null(inFile)){
       return(NULL)
     } else {
       numfiles = nrow(inFile)
       filelist = list()
       for (i in 1:numfiles)
-      {
-        Data_sensit <- suppressMessages(fread(input$files[[i, 'datapath']], skip = "Local Date Time", fill = TRUE))
-        Data_sensit$time <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S")  #, tz = "America/New_York"
-        
-        ##################### Complete quick Auto QA scan
-        ##### look for QA col, if not there, add it
-        if(!'QA' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(QA = 0)
-        # check for repeated wind/PID vals
-        Data_sensit$QA <- ifelse(rep(rle(Data_sensit$ws_speed)$lengths,
-                                     times = rle(Data_sensit$ws_speed)$lengths) * sign(Data_sensit$ws_speed) > 30, 108, Data_sensit$QA ) # flag 10
-        Data_sensit$QA <- ifelse(rep(rle(Data_sensit$ws_direction)$lengths,
-                                     times = rle(Data_sensit$ws_direction)$lengths) * sign(Data_sensit$ws_direction) > 30, 109, Data_sensit$QA ) # flag 11
-        Data_sensit$QA <- ifelse(rep(rle(Data_sensit$pid1_PPB_Calc)$lengths,
-                                     times = rle(Data_sensit$pid1_PPB_Calc)$lengths) * sign(Data_sensit$ws_direction) > 30, 110, Data_sensit$QA ) # flag 12
-        # check for illogical wind vals
-        Data_sensit$QA <- ifelse(Data_sensit$ws_speed > 12,111,Data_sensit$QA ) # flag 11
-        Data_sensit$QA <- ifelse(Data_sensit$ws_direction > 360 | Data_sensit$ws_direction < 0,112,Data_sensit$QA ) # flag 12
-        # check for missing data
-        Data_sensit$QA <- ifelse(is.na(Data_sensit$pid1_PPB_Calc),113,Data_sensit$QA ) # flag 13
-        ######################## end of AutoQA Flagging
-        
-        #remove baseline #######
-        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$time, df = 10))
-        # Calc u wind and v wind
-        Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
-        Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
-        # Check for lat and long // round to prevent slightly off coordinates // return 0 to NA for mapping
-        if(!'lat' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(lat = 0)
-        if(!'long' %in% names(Data_sensit)) Data_sensit <- Data_sensit %>% add_column(long = 0)
-        Data_sensit$lat <- round(Data_sensit$lat, 4)
-        Data_sensit$long <- round(Data_sensit$long, 4)
-        Data_sensit$lat[is.na(Data_sensit$lat)] <- 0
-        Data_sensit$long[is.na(Data_sensit$long)] <- 0
-        
-        # roll up to 5 min
-        timeBase <- "5 min"
-        timeBreaks <- seq(round(min(Data_sensit$time, na.rm = T), "hour"),
-                          round(max(Data_sensit$time, na.rm = T), "hour"), timeBase)
-        Data_sensit$time <- cut(Data_sensit$time, timeBreaks)
-        # average vals to 5 min
-        Data_sensit_5 <- Data_sensit %>%
-          dplyr::group_by(time) %>%
-          dplyr::summarize(
-            bc.pid.ppb = mean(bc_pid),
-            pid.sd = sd(bc_pid, na.rm = TRUE),
-            rawPID.ppb = mean(pid1_PPB_Calc),
-            temp = mean(temp),
-            rh = mean(rh_Humd),
-            pressure = mean(pressure_mbar),
-            u.wind = mean(u),
-            v.wind = mean(v),
-            s1temp = mean(tc_temp),
-            s1heat = mean(tc_heatOutput),
-            set = mean(tc_setPoint),
-            bat.volt = mean(batt_voltage),
-            chg.current = mean(chrg_current),
-            opp.current = mean(run_current),
-            trigportstat =  paste(unique(trig.canister_status), collapse = ', '),
-            trigactivestat = paste(unique(trig.trig_value), collapse = ', '),
-            trigactiveflag = paste(unique(trig.trig_activeFlag), collapse = ', '),
-            trigsampleflag = paste(unique(trig.trig_eventFlag), collapse = ', '),
-            lat = unique(lat, na.rm = TRUE),
-            long = unique(long, na.rm = TRUE),
-            QA = paste(unique(QA), collapse = ', ')
-          )
-        # calc MDL
-       # Data_sensit_5$MDL <- 3 * median(Data_sensit_5$pid.sd)
-        #revert wind back to ws and wd
-        Data_sensit_5$wd <- atan2(-Data_sensit_5$u.wind, -Data_sensit_5$v.wind)*180/pi + 180
-        Data_sensit_5$ws <- sqrt(Data_sensit_5$u.wind^2 + Data_sensit_5$v.wind^2)
-        # Identify node and append
-        a <- input$files$name[[i]]
-        node <- str_match(a, "Export_\\s*(.*?)\\s*_20")
-        ID <- node[,2]
-        Data_sensit_5$SN <- paste0("SPOD", ID)
-        Data_sensit_5$day <- str_sub(Data_sensit_5$time, start = 1, end = 10)
+      { # check for SENSIT SPod data which does not carry a sensor ID col. 
+        #read in data file
+        Data <- fread(input$files[[i, 'datapath']]) # will have to edit to "skip to usable dat" somehow ...
+        #check for Sensit Connect data, which does not carry the Sensor Id col
+        filename <- input$files$name[[i]]
+        Data$spod_check <- ifelse(grepl("SPOD_Data_Export", filename, fixed = TRUE) == TRUE, str_match(filename, "Export_\\s*(.*?)\\s*_20")[,2], "0" )
         # Roll up data
-        filelist[[i]] <- Data_sensit_5
+        filelist[[i]] <- Data
       }
-      do.call(rbind, filelist)
+      #do.call(rbind, filelist)
+      #plyr:::rbind.fill(lapply(x,function(y){as.data.frame(t(filelist),stringsAsFactors=FALSE)}))
+      data.table::rbindlist(filelist, fill = TRUE)
+      
       
     }
   })
   
- spod_all_5min_highws <- reactive({
-   req(spod_all_5min())
-   all <- spod_all_5min()
-   spod_all_5min_highws <- subset(all, all$ws >= 1)
- })
+  ##creating dropdowns
+  output$ID_column <- renderUI({
+    req(input$files)
+    test_df <- test()
+    selectizeInput("ID_column",
+                   "Sensor ID:",
+                   c(names(test_df), "NA"), 
+                   selected= "spod_check")
+  })
   
-  ############################################################################## DATA INPUT output table
-  output$contents5 <-  DT::renderDataTable({
-    req(spod_all_5min())
-    x <- as.data.frame(spod_all_5min())
+  output$Time_column <- renderUI({
+    req(input$files)
+    test_df <- test()
+    selectizeInput("Time_column",
+                   "Date/Time stamp:",
+                   c(names(test_df), "NA"), 
+                   selected=ifelse(any(names(test_df) == 'Local Date Time'),'Local Date Time', 'NA'))
+  })
+  
+  output$Time_Zone <- renderUI({
+    req(input$files)
+    selectizeInput("Time_Zone",
+                   "Select Time Zone (choose local time for SPods):",
+                   c( "UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage"), 
+                   selected="America/New_York")
+  })
+  
+  
+  output$Signal_column <- renderUI({
+    req(input$files)
+    test_df <- test()
+    selectizeInput("Signal_column",
+                   "Sensor Signal 1:",
+                   c(names(test_df), "NA"), 
+                   selected=ifelse(any(names(test_df) == 'pid1_PPB_Calc'),'pid1_PPB_Calc', 'NA'))
+  })
+  
+  output$WS_column <- renderUI({
+    req(input$files)
+    test_df <- test()
+    selectizeInput("WS_column",
+                   "Wind Speed:",
+                   c(names(test_df), "NA"), 
+                   selected=ifelse(any(names(test_df) == 'ws_speed'),'ws_speed', 'NA'))
+  })
+  output$WD_column <- renderUI({
+    req(input$files)
+    test_df <- test()
+    selectizeInput("WD_column",
+                   "Wind Direction (deg):",
+                   c(names(test_df), "NA"),  
+                   selected=ifelse(any(names(test_df) == 'ws_direction'),'ws_direction', 'NA'))
+  })
+  
+  output$Temp_column <- renderUI({
+    req(input$files)
+    test_df <- test()
+    selectizeInput("Temp_column",
+                   "Temperature:",
+                   c(names(test_df), "NA"),  
+                   selected=ifelse(any(names(test_df) == 'temp'),'temp', 'NA'))
+  })
+  
+  output$RH_column <- renderUI({
+    req(input$files)
+    test_df <- test()
+    selectizeInput("RH_column",
+                   "Relative Humidity (%):",
+                   c(names(test_df), "NA"), 
+                   selected=ifelse(any(names(test_df) == 'rh_Humd'),'rh_Humd', 'NA'))
+  })
+  
+  output$Lat_column <- renderUI({
+    req(input$files)
+    test_df <- test()
+    selectizeInput("Lat_column",
+                   "Latitude (decimal):",
+                   c(names(test_df), "NA"), 
+                   selected=ifelse(any(names(test_df) == 'lat'),'lat', 'NA'))
+  })
+  
+  output$Long_column <- renderUI({
+    req(input$files)
+    test_df <- test()
+    selectizeInput("Long_column",
+                   "Longitude (decimal):",
+                   c(names(test_df), "NA"), 
+                   selected=ifelse(any(names(test_df) == 'long'),'long', 'NA'))
+  })
+  
+  output$Can_column <- renderUI({
+    req(input$files)
+    test_df <- test()
+    selectizeInput("Can_column",
+                   "Active Canister trigger:",
+                   c(names(test_df), "NA"), 
+                   selected=ifelse(any(names(test_df) == 'trig.trig_activeFlag'),'trig.trig_activeFlag', 'NA'))
+  })
+  
+  
+  
+  # build DF to recieve new col names
+  df_new <- reactive({
+    req(input$files)
     
-    # x <- x %>% as.data.frame() %>% 
-    #   dplyr::arrange(time)
-    # x$time <- ymd_hms(as.character(x$time), tz = "America/New_York")
-    # x$time <- force_tz(x$time, tzone = "America/New_York")
-    x$time <- as.character(strptime(x$time, "%Y-%m-%d %H:%M"))
-    y <- x %>%
-      # mutate(Serial.number = factor(SN)) %>%
-      group_by(SN, day) %>%
-      dplyr::summarize(Count = n(),
-                       Data_Comp = (Count/288) * 100,
-                       Lat = unique(lat),
-                       Long = unique(long),
-                       Start = min(time, na.rm = TRUE), 
-                       End = max(time, na.rm = TRUE))
-    DT::datatable(y, options = list(dom = 't'))
+    old_signal_name <- input$Signal_column
+    old_sensor_id_name <- input$ID_column
+    old_WS_name <- input$WS_column
+    old_WD_name <- input$WD_column
+    old_Temp_name <- input$Temp_column
+    old_RH_name <- input$RH_column
+    old_Lat_name <- input$Lat_column
+    old_Long_name <- input$Long_column
+    old_Can_name <- input$Can_column
+    old_Time_name <- input$Time_column
+    
+    df_1 <- test()
+    
+    names(df_1)[names(df_1) == old_signal_name] <- 'Signal_1'
+    names(df_1)[names(df_1) == old_sensor_id_name] <- 'Sensor_ID'
+    names(df_1)[names(df_1) == old_WS_name] <- 'WS'
+    names(df_1)[names(df_1) == old_WD_name] <- 'WD'
+    names(df_1)[names(df_1) == old_Temp_name] <- 'Temp'
+    names(df_1)[names(df_1) == old_RH_name] <- 'RH'
+    names(df_1)[names(df_1) == old_Lat_name] <- 'Lat'
+    names(df_1)[names(df_1) == old_Long_name] <- 'Long'
+    names(df_1)[names(df_1) == old_Can_name] <- 'Canister'
+    names(df_1)[names(df_1) == old_Time_name] <- 'Timestamp'
+    
+    df_1 <- as.data.frame(df_1)
+    return(df_1)
   })
-  ############################################################################## DASHBOARD outputs
-  ######################################################## SPOD selector
-  output$spodselect <- renderUI({
-    choice <-  unique(spod_all_5min()$SN)
-    selectInput("spodselect",h4("Select SPOD unit to display:"), choices = choice, selected = choice[1])
-  })
+  
+  # export CSV file of aggregated data - make a "daily files download" option ?? add to data check page?
+  output$saveQAfile <- downloadHandler(
+    filename = function() {
+      QA_df <- test_df_new()
+      paste0("Data_Export_", Sys.Date(), "_QA.csv", sep="")
+    },
+    content = function(file) {
+      readr::write_csv(hot_to_r(input$upload_table), file)
+    }
+  )
+  
+  
+  # Upload Table 
+  output$upload_table <- renderRHandsontable({
+    req(input$Time_column)  ##### this is causing red warning messages, find a way to suppress these?? also this is very slow...try with normal output table??
+    all_QA_static <- df_new()
+    all_QA_static[is.na(all_QA_static)] = " "
+    all_QA_static$QA <- "None"
+    all_QA_static$Timestamp <- as.character(all_QA_static$Timestamp)
 
-  spod_all_5min_active <- reactive({
+    flags <- c("None","Calibration","Interferance","Maintenance","Malfunction","Other","WD_Interference", "WD_Error")
+    rhandsontable(all_QA_static, width = 850, height = 550)%>%
+      hot_col(col = "QA", type = "dropdown", source = flags)%>%
+      hot_context_menu(allowRowEdit = FALSE, allowColEdit = FALSE)%>%
+      hot_cols(columnSorting = TRUE)
+  })
+  
+  
+  ####### Data Processing, Cleaning, and Aggregating 
+  data_5min <- reactive({
+    WSunit <- input$WS_units
+    TimeZone <- input$Time_Zone
+    DF = hot_to_r(input$upload_table)
+    DF <- as.data.frame(DF)
+    DF$wsunit <- WSunit
+    
+    ##################### Data prep and cleaning
+    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S", "%m/%d%y %H:%M:%S", "%m/%d%Y %H:%M:%S" )
+    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats)
+    DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+
+    #force cols to numeric if they exist ; create NA versions if they dont exist so QA can run 
+    DF <- DF %>% mutate(across(matches('Signal_1|WS|WD|Temp|RH|Canister|Lat|Long'), as.numeric))
+    if(!'WS' %in% names(DF)) DF <- DF %>% mutate(WS = NA)
+    if(!'WD' %in% names(DF)) DF <- DF %>% mutate(WD = NA)
+    if(!'Signal_1' %in% names(DF)) DF <- DF %>% mutate(Signal_1 = NA)
+    if(!'Lat' %in% names(DF)) DF <- DF %>% mutate(Lat = NA)
+    if(!'Long' %in% names(DF)) DF <- DF %>% mutate(Long = NA)
+    if(!'Canister' %in% names(DF)) DF <- DF %>% mutate(Canister = NA)
+    if(!'Temp' %in% names(DF)) DF <- DF %>% mutate(Temp = NA)
+    if(!'RH' %in% names(DF)) DF <- DF %>% mutate(RH = NA)
+
+    DF <- as_data_frame(DF)
+    # apply wind speed correction to m/s
+    DF$WS_mps <- as.numeric(DF$WS) / as.numeric(DF$wsunit,2)
+    
+    # add U and V for WD averaging 
+    DF$u <- DF$WS_mps * sin(2 * pi * DF$WD/360)
+    DF$v <- DF$WS_mps * cos(2 * pi * DF$WD/360)
+    # Check for lat and long // round to prevent slightly off coordinates // return 0 to NA for mapping
+    if(!'Lat' %in% names(DF)) DF <- DF %>% add_column(Lat = 0)
+    if(!'Long' %in% names(DF)) DF <- DF %>% add_column(Long = 0)
+    DF$Lat <- round(DF$Lat, 4)
+    DF$Long <- round(DF$Long, 4)
+    DF$Lat[is.na(DF$Lat)] <- 0
+    DF$Long[is.na(DF$Long)] <- 0
+    
+    ##################### Complete quick Auto QA scan
+    ##### look for QA col, if not there, add it
+    if(!'QA' %in% names(DF)) DF <- DF %>% add_column(QA = "None")
+    # check for repeated wind/PID vals
+    DF$QA <- ifelse(rep(rle(DF$WS)$lengths,
+                        times = rle(DF$WS)$lengths) * sign(DF$WS) > 30, "WS_repeat", DF$QA ) # flag 10
+    DF$QA <- ifelse(rep(rle(DF$WD)$lengths,
+                        times = rle(DF$WD)$lengths) * sign(DF$WD) > 30, "WD_repeat", DF$QA ) # flag 11
+    DF$QA <- ifelse(rep(rle(DF$Signal_1)$lengths,
+                        times = rle(DF$Signal_1)$lengths) * sign(DF$Signal_1) > 30, "Sig_repeat", DF$QA ) # flag 12
+    # check for illogical wind vals
+    DF$QA <- ifelse(DF$WS > 20,"WS_offscale",DF$QA ) # flag 11
+    DF$QA <- ifelse(DF$WD > 360 | DF$WD < 0,"WD_offscale",DF$QA ) # flag 12
+    # check for missing data
+    DF$QA <- ifelse(is.na(DF$Signal_1),"Missing_Signal",DF$QA ) # flag 13
+    ######################## end of AutoQA Flagging
+    # Baseline Correction (default to 10)
+    DF$bc <- (DF$Signal_1 - getBaseline(DF$Signal_1, DF$Timestamp, df = 10))
+    # roll up to 5 min
+    timeBase <- "5 min"
+    timeBreaks <- seq(round(min(DF$Timestamp, na.rm = T), "min"),
+                      round(max(DF$Timestamp, na.rm = T), "min"), timeBase)
+    DF$timecut <- cut(DF$Timestamp, timeBreaks)
+    # average vals to 5 min
+    Data_5 <- DF %>%
+      dplyr::group_by(Sensor_ID, timecut) %>%
+      dplyr::summarize(
+        signal_1 = mean(Signal_1, na.rm = TRUE),
+        bc_signal_1 = mean(bc, na.rm = TRUE),
+        ws = mean(WS_mps, na.rm = TRUE),
+        Temp = mean(Temp, na.rm = TRUE),
+        RH = mean(RH, na.rm = TRUE),
+        U =  mean(u, na.rm = TRUE),
+        V =  mean(v, na.rm = TRUE),
+        QA = paste(unique(QA), collapse = ', '),
+        Lat =  unique(Lat, na.rm = TRUE),
+        Long =  unique(Long, na.rm = TRUE),
+        Canister = paste(unique(Canister), collapse = ', ')
+      )
+    #calc WD based on U and V (leave WS as a scalar calc)
+    Data_5$wd <- atan2(-Data_5$U, -Data_5$V)*180/pi + 180
+    print(sum(is.na(Data_5$timecut)))
+    return(Data_5)
+  })
+  
+  
+  
+  
+  
+  
+  # Data Check Page Functions -----------------------------------------------
+  
+  
+  
+  
+  #display data (summary table showing 5 min data)
+  output$summarytable <- DT::renderDataTable({
+    req(input$files)
+    TimeZone <- input$Time_Zone
+    df <- as.data.frame(data_5min())
+    df$timecut <- as.POSIXct(df$timecut, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    
+    summary <- df %>%
+      dplyr::group_by(Sensor_ID) %>%
+      dplyr::summarise(
+        Start_Time = min(timecut, na.rm = T),
+        End_Time = max(timecut, na.rm = T),
+        Lat = unique(Lat),
+        Long = unique(Lat),
+        Count = n(), 
+        QA =paste(unique(QA), collapse = ', '),
+        Canister = paste(unique(Canister), collapse = ', ')
+      )
+    summary$Start_Time <- as.character(summary$Start_Time)
+    summary$End_Time <- as.character(summary$End_Time)
+    
+    datatable(summary,
+              selection = 'single',
+              options = list(autoWidth = TRUE,
+                             scrollX = TRUE,
+                             searching = FALSE,
+                             lengthChange = FALSE),
+              rownames= FALSE)
+  })
+  
+  
+  
+  #### add export options here: daily 5 min processed files or one large file?
+  
+  
+  
+
+# Dashboard Page Functions ------------------------------------------------
+
+  
+  
+  # build in option to exclude low wind speed data from analysis 
+  data_5min_highws <- reactive({
+    req(data_5min())
+    all <- data_5min()
+    data_5min_highws <- subset(all, all$ws >= 1)
+  })
+  
+  # select between SPods for analysis 
+  output$unitselect <- renderUI({
+    choice <-  unique(data_5min()$Sensor_ID)
+    selectInput("unitselect",h4("Select unit to display:"), choices = choice, selected = choice[1])
+  })
+  
+  # select active SPod data set (> 1 min or normal)
+  data_5min_active <- reactive({
     if (input$ws_select == "All Data")
-      spod_all_5min()
+      data_5min()
     else if (input$ws_select == ">1 m/s")
-      spod_all_5min_highws()
+      data_5min_highws()
     # else
     #   stop("Unexpected dataset")
   })
   
-
   
-    ######################################################## Leaflet polar map
+  
+  
+  # Leaflet polar map
   output$polarmap <- renderLeaflet({
-    req(input$spodselect)
+    req(input$unitselect)
     req(input$statselect)
-    spodinput <- input$spodselect
+    unitinput <- input$unitselect
+    print(unitinput)
     statinput <- input$statselect
-    req(spod_all_5min_active())
-    spod_all_5 <- as.data.frame(spod_all_5min_active()) 
-    spod_all_5_1 <- subset(spod_all_5,
-                           # spod_all_5$SN == input$spodselect &
-                             spod_all_5$ws >= input$windfilterInput[1] & 
-                             spod_all_5$ws <= input$windfilterInput[2] &
-                             spod_all_5$QA == 0)
+    req(data_5min_active())
+    data_all_5 <- as.data.frame(data_5min_active()) 
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$ws >= input$windfilterInput[1] & 
+                             data_all_5$ws <= input$windfilterInput[2] &
+                             data_all_5$QA == "None")
     
     output$latlongtext <- renderText({ "Note: Basemap only displayed when lat/long data detected"})
-    
-    polarMap(spod_all_5_1,
-             latitude = 'lat',
-             longitude = 'long',
-             pollutant = 'bc.pid.ppb',
+    polarMap(data_all_5_1,
+             latitude = 'Lat',
+             longitude = 'Long',
+             pollutant = 'bc_signal_1',
              statistic = statinput,
              provider = "Esri.WorldImagery",
              cols = "jet",
@@ -639,63 +820,62 @@ server <- function(input, output, session) {
                                axis.text = list(col = 'white'),
                                add.text = list(col = 'white'),
                                layout.widths = list(left.padding = 3, right.padding = 0, axis.key.padding = 0)
-                               ))
+             ))
   })
   #str(trellis.par.get(), max.level = 1)
   ######################################################## SDI plots and Wind Roses
   output$FREQ <- renderPlot({
-    req(spod_all_5min_active())
-    req(input$spodselect)
     req(input$statselectFREQ)
-    spod_all_5 <- as.data.frame(spod_all_5min_active())
-    spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect &
-                             spod_all_5$QA == 0)
+    req(input$unitselect)
+    req(data_5min_active())
+    unitinput <- input$unitselect
+   # print(unitinput)
+    data_all_5 <- as.data.frame(data_5min_active())
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$Sensor_ID == input$unitselect &
+                             data_all_5$QA == "None")
     statFREQ <- input$statselectFREQ
+    trellis.par.set(theme = col.whitebg()) # make background transparent 
     
-   trellis.par.set(theme = col.whitebg()) # make background transparent 
     
-    
-    polarFreq(spod_all_5_1, pollutant = "bc.pid.ppb",fontsize = 18,
+    polarFreq(data_all_5_1, pollutant = "bc_signal_1",fontsize = 18,
               statistic = statFREQ, main = NULL, key.position = "right", 
               par.settings = col.whitebg())
   })
   
   SDI_build <- reactive({# SDI plot
-    req(spod_all_5min_active())
-    req(input$spodselect)
+    req(data_5min_active())
     req(input$statselectSDI) 
-    spod_all_5 <- as.data.frame(spod_all_5min_active())
-    spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect &
-                             spod_all_5$QA == 0)
+    data_all_5 <- as.data.frame(data_5min_active())
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$Sensor_ID == input$unitselect &
+                             data_all_5$QA == "None")
     statSDI <- input$statselectSDI
     
     trellis.par.set(theme = col.whitebg()) # make background transparent 
     
-    polarPlot(spod_all_5_1, pollutant = "bc.pid.ppb",  fontsize = 18,
+    polarPlot(data_all_5_1, pollutant = "bc_signal_1",  fontsize = 18,
               statistic = statSDI, main = NULL, key.position = "right", 
               par.settings = col.whitebg())
-              
-
+    
+    
     
   })
   output$SDI <- renderPlot({
     SDI_build()
   })
   WR_build <- reactive({# Wind Rose plot
-    req(spod_all_5min_active())
-    req(input$spodselect)
-    spod_all_5 <- as.data.frame(spod_all_5min_active())
-    spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect &
-                             spod_all_5$QA == 0)
+    req(data_5min_active())
+    data_all_5 <- as.data.frame(data_5min_active())
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$Sensor_ID == input$unitselect &
+                             data_all_5$QA == "None")
     
     #trellis.par.set(background = list(col="green")) # make background transparent 
     
     trellis.par.set(theme = col.whitebg()) # make background transparent 
     
-    windRose(spod_all_5_1,  fontsize = 18, paddle = F, cols = "hue",
+    windRose(data_all_5_1,  fontsize = 18, paddle = F, cols = "hue",
              main = NULL, key.position = "right",
              par.settings=list(par.sub.text=list(cex=0.8),
                                col.whitebg()))
@@ -706,39 +886,32 @@ server <- function(input, output, session) {
   })
   ######################################################## time series outputs
   BCplot_build <- reactive({# background Correction plot
-    req(spod_all_5min_active())
-    spod_all_5 <- as.data.frame(spod_all_5min_active())
-    spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect &
-                             spod_all_5$QA == 0)
-    
-    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
-    #   dplyr::arrange(time)
-    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
-    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
-    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
-    
+    req(data_5min_active())
+    data_all_5 <- as.data.frame(data_5min_active())
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$Sensor_ID == input$unitselect &
+                             data_all_5$QA == "None")
     p <-
       plot_ly(
-        spod_all_5_1,
-        x = ~ time,
-        y = ~rawPID.ppb, 
+        data_all_5_1,
+        x = ~ timecut,
+        y = ~ signal_1,
         type = "scatter", name = "Raw Signal",
-        hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
+        hovertext = ~ paste0("time: ", data_all_5_1$timecut, "<br>", "WD: ", round(data_all_5_1$wd,2)),
         hoverinfo = "text",
-        mode = "lines",  showlegend = T, connectgaps = F, line = list(color = "black")) %>%
+        mode = "lines",  showlegend = T, connectgaps = FALSE, line = list(color = "black")) %>%
       layout(showlegend = T,
-             yaxis = list(title = "5-min Signal (ppb)", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+             yaxis = list(title = paste0 ("5-min Signal (",input$Signal_units, ")"), showgrid = FALSE, showline = TRUE, mirror=TRUE),
              legend = list(
                orientation = "h",
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
              scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
                           yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
-    p <- p %>% add_trace(y = spod_all_5_1$rawPID.ppb - spod_all_5_1$bc.pid.ppb, name = 'Baseline', mode = 'lines', connectgaps = FALSE, line = list(color = "red"))
+    p <- p %>% add_trace(y = data_all_5_1$signal_1 - data_all_5_1$bc_signal_1, name = 'Baseline', mode = 'lines', connectgaps = FALSE, line = list(color = "red"))
     p
   })
   
@@ -747,17 +920,11 @@ server <- function(input, output, session) {
   })
   
   WDplot_build <- reactive({    # Wind Direction plot
-    req(spod_all_5min_active())
-    spod_all_5 <- as.data.frame(spod_all_5min_active())
-    spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect &
-                             spod_all_5$QA == 0)
-    
-    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
-    #   dplyr::arrange(time)
-    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
-    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
-    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
+    req(data_5min_active())
+    data_all_5 <- as.data.frame(data_5min_active())
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$Sensor_ID == input$unitselect &
+                             data_all_5$QA == "None")
     
     ay <- list(
       tickfont = list(color = "black"),
@@ -768,11 +935,11 @@ server <- function(input, output, session) {
       showline = TRUE, mirror=TRUE)
     w <-
       plot_ly(
-        spod_all_5_1,
-        x = ~time,
+        data_all_5_1,
+        x = ~timecut,
         y = ~wd,
         type = "scatter", name = "Wind Direction",
-        hovertext = ~ paste0("time: ", spod_all_5_1$time),
+        hovertext = ~ paste0("time: ", data_all_5_1$timecut),
         hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "green")) %>%
       layout(showlegend = T,
@@ -781,11 +948,11 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE, mirror=TRUE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, mirror=TRUE),
              scene = list(xaxis = list(showgrid = F,showline = TRUE, mirror=TRUE),
                           yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
-    w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
+    w <- w %>% add_trace(y = data_all_5_1$bc_signal_1, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
       xaxis = list(title="Date", showgrid = FALSE, showline = TRUE, mirror=TRUE),
@@ -798,23 +965,65 @@ server <- function(input, output, session) {
     WDplot_build()
   })
   
+
+  WSplot_build <- reactive({    # Wind Direction plot
+    req(data_5min_active())
+    data_all_5 <- as.data.frame(data_5min_active())
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$Sensor_ID == input$unitselect &
+                             data_all_5$QA == "None")
+    
+    ay <- list(
+      tickfont = list(color = "black"),
+      overlaying = "y",
+      side = "right",
+      title = "5-min Signal (ppb)",
+      showgrid = FALSE,
+      showline = TRUE, mirror=TRUE)
+    w <-
+      plot_ly(
+        data_all_5_1,
+        x = ~timecut,
+        y = ~ws,
+        type = "scatter", name = "Wind Speed",
+        hovertext = ~ paste0("time: ", data_all_5_1$timecut),
+        hoverinfo = "text",
+        mode = "markers",  showlegend = T, marker = list(color = "gray")) %>%
+      layout(showlegend = T,
+             legend = list(
+               orientation = "h",
+               x = 0.3,
+               y = -0.5
+             ),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, mirror=TRUE),
+             scene = list(xaxis = list(showgrid = F,showline = TRUE, mirror=TRUE),
+                          yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
+      )
+    w <- w %>% add_trace(y = data_all_5_1$bc_signal_1, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
+    w <- w %>% layout(
+      yaxis2 = ay,
+      xaxis = list(title="Date", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+      yaxis = list(title= list(text = "Wind Speed (m/s)", font = list(color = 'gray')), tickfont = list(color = 'gray'), showgrid = FALSE, showline = TRUE, mirror=TRUE),
+      margin = list(l = 50, t = 50, b =50, r = 100, pad = 20))
+    w
+  })
+  
+  output$windspeedplot <- renderPlotly({ # wind direction plot
+    WSplot_build()
+  })
+ 
+  
   CTplot_build <- reactive({# Canister plot
-    req(spod_all_5min_active())
-    spod_all_5 <- as.data.frame(spod_all_5min_active())
-    spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect)
+    req(data_5min_active())
+    data_all_5 <- as.data.frame(data_5min_active())
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$Sensor_ID == input$unitselect)
     
-    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
-    #   dplyr::arrange(time)
-    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
-    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
-    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
-    
-    spod_all_5_1$trigactiveflag <- as.character(spod_all_5_1$trigactiveflag)
-    spod_all_5_1$port1 <- ifelse(grepl("1", spod_all_5_1$trigactiveflag), -1, NA)
-    spod_all_5_1$port2 <- ifelse(grepl("2", spod_all_5_1$trigactiveflag), -1.4, NA)
-    spod_all_5_1$port3 <- ifelse(grepl("4", spod_all_5_1$trigactiveflag), -1.8, NA)
-    spod_all_5_1$port4 <- ifelse(grepl("8", spod_all_5_1$trigactiveflag), -2.2, NA)
+    data_all_5_1$Canister <- as.character(data_all_5_1$Canister)
+    data_all_5_1$port1 <- ifelse(grepl("1", data_all_5_1$Canister), -1, NA)
+    data_all_5_1$port2 <- ifelse(grepl("2", data_all_5_1$Canister), -1.4, NA)
+    data_all_5_1$port3 <- ifelse(grepl("4", data_all_5_1$Canister), -1.8, NA)
+    data_all_5_1$port4 <- ifelse(grepl("8", data_all_5_1$Canister), -2.2, NA)
     
     ay <- list(
       tickfont = list(color = "black"),
@@ -826,11 +1035,11 @@ server <- function(input, output, session) {
     
     w <-
       plot_ly(
-        spod_all_5_1,
-        x = ~time,
+        data_all_5_1,
+        x = ~timecut,
         y = ~port1,
         type = "scatter", name = "port1",
-        hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
+        hovertext = ~ paste0("time: ", data_all_5_1$timecut, "<br>", "WD: ", round(data_all_5_1$wd,2)),
         hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "darkgreen", size = 10, opacity = 0.8)) %>%
       layout(showlegend = T,
@@ -841,32 +1050,32 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE,showline = TRUE, mirror=TRUE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE,showline = TRUE, mirror=TRUE),
              scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
                           yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
-    w <- w %>% add_trace( spod_all_5_1,
-                          x = ~time,
+    w <- w %>% add_trace( data_all_5_1,
+                          x = ~timecut,
                           y = ~port2,
                           type = "scatter", name = "port2",
-                          hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
+                          hovertext = ~ paste0("time: ", data_all_5_1$timecut, "<br>", "WD: ", round(data_all_5_1$wd,2)),
                           hoverinfo = "text",
                           mode = "markers",  showlegend = T, marker = list(color = "darkcyan", size = 10, opacity = 0.8))
-    w <- w %>% add_trace( spod_all_5_1,
-                          x = ~time,
+    w <- w %>% add_trace( data_all_5_1,
+                          x = ~timecut,
                           y = ~port3,
-                          hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
+                          hovertext = ~ paste0("time: ", data_all_5_1$timecut, "<br>", "WD: ", round(data_all_5_1$wd,2)),
                           hoverinfo = "text",
                           type = "scatter", name = "port3",
                           mode = "markers",  showlegend = T, marker = list(color = "mediumblue", size = 10, opacity = 0.8))
-    w <- w %>% add_trace( spod_all_5_1,
-                          x = ~time,
+    w <- w %>% add_trace( data_all_5_1,
+                          x = ~timecut,
                           y = ~port4,
-                          hovertext = ~ paste0("time: ", spod_all_5_1$time, "<br>", "WD: ", round(spod_all_5_1$wd,2)),
+                          hovertext = ~ paste0("time: ", data_all_5_1$timecut, "<br>", "WD: ", round(data_all_5_1$wd,2)),
                           hoverinfo = "text",
                           type = "scatter", name = "port4",
                           mode = "markers",  showlegend = T, marker = list(color = "purple4", size = 10, opacity = 0.8))
-    w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
+    w <- w %>% add_trace(y = data_all_5_1$bc_signal_1, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
       xaxis = list(title="Date", showgrid = FALSE, mirror=TRUE),
@@ -880,31 +1089,24 @@ server <- function(input, output, session) {
   })
   
   RHplot_build <- reactive({    # Relative Humidity plot
-    req(spod_all_5min_active())
-    spod_all_5 <- as.data.frame(spod_all_5min_active())
-    spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect &
-                             spod_all_5$QA == 0)
-    
-    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
-    #   dplyr::arrange(time)
-    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
-    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
-    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
-    
+    req(data_5min_active())
+    data_all_5 <- as.data.frame(data_5min_active())
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$Sensor_ID == input$unitselect &
+                             data_all_5$QA == "None")
     ay <- list(
       tickfont = list(color = "black"),
       overlaying = "y",
       side = "right",
-      title = "5-min Signal (ppb)", 
+      title = paste0 ("5-min Signal (",input$Signal_units, ")"), 
       showgrid = FALSE, mirror=TRUE)
     w <-
       plot_ly(
-        spod_all_5_1,
-        x = ~time,
-        y = ~rh,
+        data_all_5_1,
+        x = ~timecut,
+        y = ~RH,
         type = "scatter", name = "Relative Humidity",
-        hovertext = ~ paste0("time: ", spod_all_5_1$time),
+        hovertext = ~ paste0("time: ", data_all_5_1$timecut),
         hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "purple")) %>%
       layout(showlegend = T,
@@ -913,11 +1115,11 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE),
              scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
                           yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
-    w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
+    w <- w %>% add_trace(y = data_all_5_1$bc_signal_1, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
       xaxis = list(title="Date", showgrid = FALSE, showline = TRUE, mirror=TRUE),
@@ -927,35 +1129,29 @@ server <- function(input, output, session) {
   })
   
   output$RHplot <- renderPlotly({ # relative humidity plot
-  RHplot_build()
+    RHplot_build()
   })
   
   Tplot_build <- reactive({    # Temperature plot
-    req(spod_all_5min_active())
-    spod_all_5 <- as.data.frame(spod_all_5min_active())
-    spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect &
-                             spod_all_5$QA == 0)
-    
-    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
-    #   dplyr::arrange(time)
-    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
-    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
-    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
+    req(data_5min_active())
+    data_all_5 <- as.data.frame(data_5min_active())
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$Sensor_ID == input$unitselect &
+                             data_all_5$QA == "None")
     
     ay <- list(
       tickfont = list(color = "black"),
       overlaying = "y",
       side = "right",
-      title = "5-min Signal (ppb)",
+      title = paste0 ("5-min Signal (",input$Signal_units, ")"),
       showgrid = FALSE, showline = TRUE, mirror=TRUE)
     w <-
       plot_ly(
-        spod_all_5_1,
-        x = ~time,
-        y = ~temp,
+        data_all_5_1,
+        x = ~timecut,
+        y = ~Temp,
         type = "scatter", name = "Temperature",
-        hovertext = ~ paste0("time: ", spod_all_5_1$time),
+        hovertext = ~ paste0("time: ", data_all_5_1$timecut),
         hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "blue")) %>%
       layout(showlegend = T,
@@ -964,11 +1160,11 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE),
              scene = list(xaxis = list(showgrid = F),
                           yaxis = list(showgrid = F))
       )
-    w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
+    w <- w %>% add_trace(y = data_all_5_1$bc_signal_1, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
       xaxis = list(title="Date", showgrid = FALSE, showline = TRUE, mirror=TRUE),
@@ -982,34 +1178,28 @@ server <- function(input, output, session) {
   })
   
   CALplot_build <- reactive({ # calibrations plot
-    req(spod_all_5min_active())
-    spod_all_5 <- as.data.frame(spod_all_5min_active())
-    spod_all_5_1 <- subset(spod_all_5,
-                           spod_all_5$SN == input$spodselect )
+    req(data_5min_active())
+    data_all_5 <- as.data.frame(data_5min_active())
+    data_all_5_1 <- subset(data_all_5,
+                           data_all_5$Sensor_ID == input$unitselect )
     
-    # spod_all_5_1 <- spod_all_5_1 %>% as.data.frame() %>%
-    #   dplyr::arrange(time)
-    # spod_all_5_1$time <- ymd_hms(as.character(spod_all_5_1$time), tz = "America/New_York")
-    # spod_all_5_1$time <- force_tz(spod_all_5_1$time, tzone = "America/New_York")
-    spod_all_5_1$time <- as.character(strptime(spod_all_5_1$time, "%Y-%m-%d %H:%M"))
-    
-    spod_all_5_1$QA <- as.character(spod_all_5_1$QA)
-    spod_all_5_1$Calibration <- ifelse(grepl("100", spod_all_5_1$QA), 1, NA)   
+    data_all_5_1$QA <- as.character(data_all_5_1$QA)
+    data_all_5_1$Calibration <- ifelse(grepl("Calibration", data_all_5_1$QA), 1, NA)   
     
     
     ay <- list(
       tickfont = list(color = "black"),
       overlaying = "y",
       side = "right",
-      title = "5-min Signal (ppb)",
+      title = paste0 ("5-min Signal (",input$Signal_units, ")"),
       showgrid = FALSE, showline = TRUE, mirror=TRUE)
     w <-
       plot_ly(
-        spod_all_5_1,
-        x = ~time,
+        data_all_5_1,
+        x = ~timecut,
         y = ~Calibration,
         type = "scatter", name = "Calibration",
-        hovertext = ~ paste0("time: ", spod_all_5_1$time),
+        hovertext = ~ paste0("time: ", data_all_5_1$timecut),
         hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "orange", size = 10, opacity = 0.8)) %>%
       layout(showlegend = T,
@@ -1020,12 +1210,12 @@ server <- function(input, output, session) {
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n%H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
              scene = list(xaxis = list(showgrid = F),
                           yaxis = list(showgrid = F))
       )
-   
-    w <- w %>% add_trace(y = spod_all_5_1$bc.pid.ppb, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
+    
+    w <- w %>% add_trace(y = data_all_5_1$bc_signal_1, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
       xaxis = list(title="Date", showgrid = FALSE, showline = TRUE, mirror=TRUE),
@@ -1043,221 +1233,224 @@ server <- function(input, output, session) {
   output$report <- downloadHandler( # calls Sentinel_Report.RMD to build doc
     filename = "Sentinel_Report.html",
     content = function(file) {
-        tempReport <- file.path(tempdir(), "Sentinel_Report.Rmd") #.html
-        file.copy("Sentinel_Report.Rmd", tempReport, overwrite = TRUE)
-        params <- list(plotBC = BCplot_build(),
-                       plotWD = WDplot_build(),
-                       plotCT = CTplot_build(),
-                       plotRH = RHplot_build(),
-                       plotT = Tplot_build(),
-                       plotCAL = CALplot_build(),
-                       WR = WR_build(),
-                       SDI = SDI_build(),
-                       SN = input$spodselect,
-                       OutputDate = Sys.Date())
-        rmarkdown::render(tempReport, output_file = file,
-                          params = params,output_format = "html_document",
-                          envir = new.env(parent = globalenv())
-        )
+      tempReport <- file.path(tempdir(), "Sentinel_Report.Rmd") #.html
+      file.copy("Sentinel_Report.Rmd", tempReport, overwrite = TRUE)
+      params <- list(plotBC = BCplot_build(),
+                     plotWD = WDplot_build(),
+                     plotWS = WSplot_build(),
+                     plotCT = CTplot_build(),
+                     plotRH = RHplot_build(),
+                     plotT = Tplot_build(),
+                     plotCAL = CALplot_build(),
+                     WR = WR_build(),
+                     SDI = SDI_build(),
+                     SN = input$data_5min_active,
+                     OutputDate = Sys.Date())
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,output_format = "html_document",
+                        envir = new.env(parent = globalenv())
+      )
       
     }
   )
   
   
   
+  
+  
+  
+  
+  
+  # Data Table Page Functions ------------------------------------------------
+  
+  output$datatab <-  DT::renderDataTable({
+    all_5_tab <-  data_5min()
+    all_5_tab <- all_5_tab %>%
+      mutate_if(is.numeric, round, digits = 2)
+    DT::datatable(all_5_tab,filter = 'top',
+                  options = list(scrollX = TRUE)) 
+  })
+  
+  output$Download <-
+    downloadHandler(
+      filename = function () {
+        paste("SENTINELData_5min.csv", sep = "")
+      },
+      content = function(file) {
+        write.csv(data_5min(), file)
+      }
+    )
+  
+  
+  
+  
+  
+  
+  # Single Node Calibration Page Functions -----------------------------------
+  
+  # select between SPods for analysis 
+  output$calunitselect <- renderUI({
+    choice <-  unique(df_new()$Sensor_ID)
+    selectInput("calunitselect",h4("Select unit:"), choices = choice, selected = choice[1])
+  })
+  
 
-  ######################################################### SINGLE CALIBRATION PAGE   
-  getcaldata <- reactive({ # make data for QA table, from base dataset
-    req(input$singlenodestarttime)
-    req(input$singlenodeendtime)
-    req(input$durationInput)
+  
+  
+  # build single node df
+  getcaldata <- reactive({ # make data for QA table, from base dataset entered in data_upload (df_new)
+    req(input$calunitselect)
+    print(input$calunitselect)
     req(input$freqfile)
-    req(input$file1)
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
     duration <- as.numeric(input$durationInput)
     frequency_sec <- as.numeric(input$freqfile)
-    start_time <- as.POSIXct(input$singlenodestarttime) #, tz = "America/New_York"
-    end_time <- as.POSIXct(input$singlenodeendtime) # , tz = "America/New_York"
+    start_time <- as.POSIXct(input$singlenodestarttime, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    end_time <- as.POSIXct(input$singlenodeendtime, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    req(input$Time_column) 
+    DF <- df_new()
+    DF$Timestamp <- as.character(DF$Timestamp)
+    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
+    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats)
+    DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    DF_unit <-
+      DF %>%
+      filter(Sensor_ID == input$calunitselect)
+    # fix lat/long capitalization issue....
+    names(DF_unit)[names(DF_unit) == 'lat'] <- 'Lat'
+    names(DF_unit)[names(DF_unit) == 'long'] <- 'Long'
+    #force cols to numeric if they exist ; create NA versions if they dont exist so QA can run 
+    DF_unit <- DF_unit %>% mutate(across(matches('Signal_1|WS|WD|Temp|RH|Canister'), as.numeric))
+    if(!'WS' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(WS = NA)
+    if(!'WD' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(WD = NA)
+    if(!'Signal_1' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Signal_1 = NA)
+    if(!'Canister' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Canister = NA)
+    if(!'Temp' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Temp = NA)
+    if(!'RH' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(RH = NA)
+    DF_unit <- as_data_frame(DF_unit)
+    filtered <-
+      DF_unit %>%
+      filter(Timestamp >= start_time & Timestamp <= end_time)
+    filtered$u <- filtered$WS * sin(2 * pi * filtered$WD/360)
+    filtered$v <- filtered$WS * cos(2 * pi * filtered$WD/360)
+    filtered$WD <- atan2(-1 *filtered$u, -1 *filtered$v)*180/pi + 180
+    filtered_sum <- filtered %>%
+      select(where(is.numeric)) %>%
+      select(-any_of(c("Lat", "Long","u","v"))) %>%  
+      pivot_longer(cols = everything()) %>%
+      group_by(name) %>%
+      summarise(mean = mean(value, na.rm = TRUE), std = sd(value, na.rm = TRUE),
+                med = median(value, na.rm = TRUE), max = max(value, na.rm = TRUE), min = min(value, na.rm = TRUE),
+                comp = (sum(!is.na(value))/(duration/frequency_sec))*100)
+    return(filtered_sum)
+  })
+  
+  
 
-    inFile <- input$file1
-    if (is.null(inFile)) {
-      return(NULL)
-    } else {
-      numfiles = nrow(inFile)
-      filelist_10 = list()
-      for (i in 1:numfiles)
-      {
-        Data_sensit <- fread(input$file1[[i, 'datapath']], select = c(2:19), skip = 2, fill = TRUE)
-        Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S") #, tz = "America/New_York"
-        #remove baseline #######
-        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 10))
-        # Calc u wind and v wind
-        Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
-        Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
-        
-      }
-    }
-    filtered0 <-
-      Data_sensit %>%
-      filter(timestamp >= start_time &  timestamp <= end_time)
-    #vectorize wind direction to avoid rounding errors between 0 and 360
-    filtered0$wd <- atan2(-1 *filtered0$u, -1 *filtered0$v)*180/pi + 180
-    filtered <- filtered0[,c(2,20,3:7, 23, 9:14,16)] #change to filtered version
-    #no exponent notation
-    options(scipen=999)
-    #fix trig flag cols
-    # build QA df for output file
-    Mean <- lapply(filtered, mean)
-    Median <- lapply(filtered, median)
-    StdDev <- lapply(filtered, sd)
-    Min <- lapply(filtered, min)
-    Max <- lapply(filtered, max)
-    N <- lapply(filtered,function(x) sum(!is.na(x)))
-    DataComp <- lapply(filtered,function(x) (sum(!is.na(x))/(duration/frequency_sec))*100)
-    #Round vals for table
-    Mean <- round(as.numeric(Mean), 1)
-    Median <- round(as.numeric(Median), 1)
-    StdDev <- round(as.numeric(StdDev), 1)
-    Min <- round(as.numeric(Min), 1)
-    Max <- round(as.numeric(Max), 1)
-    DataComp <- round(as.numeric(DataComp), 1)
-    Units <- c("ppb", "ppb", "mV", "Deg C", "%", "mBar","mph","deg.", "arb.",  "0-255", "arb.", "volt", "mA", "mA", "cans")
-    xx <- cbind(Units, Mean, Median, StdDev, Min, Max, DataComp)
-    rownames(xx) <-  c("RawPIDppb", "BCPIDppb","RawPIDMv", "Temp","RH", "Pressure","WS","WD","S1temp","S1Heat",
-                       "S1Set","BatvoltV","ChargeCurrentmA","OperateCurrentmA", "can trigger")
-    xx
-  })
   
+  #Start time object
   singlenodetimestampstart <- reactive({ # create start time
-    req(input$file1)
-    a <- input$file1$name
-    dateval <- str_match(a, "_20\\s*(.*?)\\s*.csv")
-    ID <- dateval[,2]
-    singlenodetimestampstart <- as.character(paste0("20", ID, " 01:00:00"))
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    req(input$Time_column)  
+    req(input$calunitselect)
+    print(input$calunitselect)
+    DF <- df_new()
+    DF_unit <-
+      DF %>%
+      filter(Sensor_ID == input$calunitselect) 
+    DF_unit$Timestamp <- as.character(DF_unit$Timestamp)
+    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
+    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats)
+    DF_unit$Timestamp <- as.POSIXct(DF_unit$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    DF_unit <- arrange(DF_unit, Timestamp)
+    singlenodetimestampstart <- as.character(DF_unit$Timestamp[[1]])
   })
-  
   output$singlenodestarttime <- renderUI({
     textInput(inputId = "singlenodestarttime", label = "Start Time:", value = singlenodetimestampstart())
   })
+
   
+# End time object 
   singlenodetimestampend <- reactive({ # create end time
-    req(input$file1)
-    a <- input$file1$name
-    dateval <- str_match(a, "_20\\s*(.*?)\\s*.csv")
-    ID <- dateval[,2]
-    singlenodetimestampend <- as.character(paste0("20", ID, " 02:00:00"))
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    req(input$Time_column)  
+    req(input$calunitselect)
+    print(input$calunitselect)
+    DF <- df_new()
+    DF_unit <-
+      DF %>%
+      filter(Sensor_ID == input$calunitselect) 
+    DF_unit$Timestamp <- as.character(DF_unit$Timestamp)
+    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
+    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats)
+    DF_unit$Timestamp <- as.POSIXct(DF_unit$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    DF_unit <- arrange(DF_unit, Timestamp)
+    singlenodetimestampend <- as.character(DF_unit$Timestamp[[2]])
   })
-  
   output$singlenodeendtime <- renderUI({
     textInput(inputId = "singlenodeendtime", label = "End Time:", value = singlenodetimestampend())
   })
 
+  
+  # develop table in app 
   draw_caltab <- function(){ # create output for RMD  
     req(getcaldata())
-    req(input$singlenodestarttime)
-    req(input$singlenodeendtime)
-    start_time <- as.POSIXct(input$singlenodestarttime) #, tz = "America/New_York"
-    end_time <- as.POSIXct(input$singlenodeendtime) #, tz = "America/New_York"
-    xx1 <- getcaldata()
-    xx1 <- as.data.frame(xx1)
-    xx <- xx1[-c(15),]
-    xx[1,5] = cell_spec(xx[1,5], color = ifelse(as.numeric(xx[1,5]) < -200 , "red", "black"))
-    xx[2,5] = cell_spec(xx[2,5], color = ifelse(as.numeric(xx[2,5]) < -200 , "red", "black"))
-    xx[3,5] = cell_spec(xx[3,5], color = ifelse(as.numeric(xx[3,5]) < -300 , "red", "black"))
-    xx[4,5] = cell_spec(xx[4,5], color = ifelse(as.numeric(xx[4,5]) < -25 , "red", "black"))
-    xx[5,5] = cell_spec(xx[5,5], color = ifelse(as.numeric(xx[5,5]) < 10 , "red", "black"))
-    xx[6,5] = cell_spec(xx[6,5], color = ifelse(as.numeric(xx[6,5]) < 800 , "red", "black"))
-    xx[7,5] = cell_spec(xx[7,5], color = ifelse(as.numeric(xx[7,5]) < 0 , "red", "black"))
-    xx[8,5] = cell_spec(xx[8,5], color = ifelse(as.numeric(xx[8,5]) < 0 , "red", "black"))
-    xx[9,5] = cell_spec(xx[9,5], color = ifelse(as.numeric(xx[9,5]) < 500 , "red", "black"))
-    xx[10,5] = cell_spec(xx[10,5], color = ifelse(as.numeric(xx[10,5]) < 0 , "red", "black"))
-    xx[11,5] = cell_spec(xx[11,5], color = ifelse(as.numeric(xx[11,5]) < 500 , "red", "black"))
-    xx[12,5] = cell_spec(xx[12,5], color = ifelse(as.numeric(xx[12,5]) < 10 , "red", "black"))
-    xx[13,5] = cell_spec(xx[13,5], color = ifelse(as.numeric(xx[13,5]) < 0 , "red", "black"))
-    xx[14,5] = cell_spec(xx[14,5], color = ifelse(as.numeric(xx[14,5]) < 50 , "red", "black"))
-
-    xx[1,6] = cell_spec(xx[1,6], color = ifelse(as.numeric(xx[1,6]) > 5000 , "red", "black"))
-    xx[2,6] = cell_spec(xx[2,6], color = ifelse(as.numeric(xx[2,6]) > 5000 , "red", "black"))
-    xx[3,6] = cell_spec(xx[3,6], color = ifelse(as.numeric(xx[3,6]) > 10000 , "red", "black"))
-    xx[4,6] = cell_spec(xx[4,6], color = ifelse(as.numeric(xx[4,6]) > 50 , "red", "black"))
-    xx[5,6] = cell_spec(xx[5,6], color = ifelse(as.numeric(xx[5,6]) > 100 , "red", "black"))
-    xx[6,6] = cell_spec(xx[6,6], color = ifelse(as.numeric(xx[6,6]) > 1020 , "red", "black"))
-    xx[7,6] = cell_spec(xx[7,6], color = ifelse(as.numeric(xx[7,6]) > 12 , "red", "black"))
-    xx[8,6] = cell_spec(xx[8,6], color = ifelse(as.numeric(xx[8,6]) > 360 , "red", "black"))
-    xx[9,6] = cell_spec(xx[9,6], color = ifelse(as.numeric(xx[9,6]) > 5000 , "red", "black"))
-    xx[10,6] = cell_spec(xx[10,6], color = ifelse(as.numeric(xx[10,6]) > 255 , "red", "black"))
-    xx[11,6] = cell_spec(xx[11,6], color = ifelse(as.numeric(xx[11,6]) > 3000 , "red", "black"))
-    xx[12,6] = cell_spec(xx[12,6], color = ifelse(as.numeric(xx[12,6]) > 15 , "red", "black"))
-    xx[13,6] = cell_spec(xx[13,6], color = ifelse(as.numeric(xx[13,6]) > 2000 , "red", "black"))
-    xx[14,6] = cell_spec(xx[14,6], color = ifelse(as.numeric(xx[14,6]) > 200 , "red", "black"))
-
-    xx[3,4] = cell_spec(xx[3,4], color = ifelse(as.numeric(xx[3,4]) > 50 , "red", "black"))
-    
-    xx$DataComp = cell_spec(xx$DataComp, color = ifelse(xx$DataComp != 100 , "red", "black"))
-   
-    
-    cantf <- ifelse(xx1[15,6] < 0 | is.na(xx1[15,6]), "FALSE", "TRUE")
-    can <- paste("Time periods with canister collections: ", cantf, " ")
-    
-      
-    xx <- xx[c( "Mean","Median","StdDev", "Min", "Max","DataComp")] 
-    rownames(xx) <-  c("Raw PID (ppb)", "BC PID (ppb)","Raw PID (mV)", "Temp (Deg C)","RH (percent)", "Pressure (mBar)","WS (mph)","WD (deg)","S1 temp (arb)","S1 Heat (0-255)",
-                       "S1 Set (arb)","Bat volt (V)","Charge Current (mA)","Operate Current (mA)")
-    xx %>%
+     req(input$singlenodestarttime)
+     req(input$singlenodeendtime)
+     start_time <- as.character(input$singlenodestarttime, tz = "America/New_York")
+     end_time <- as.character(input$singlenodeendtime, tz = "America/New_York")
+    caltab <- getcaldata()
+    caltab <- as.data.frame(caltab)
+    names(caltab) <- c("Variable", "Mean", "SD", "Median", "Max", "Min", "% Complete")
+    caltab %>%
       kbl(escape = F, caption = paste0(start_time, " to ", end_time), digits = 2, table.attr = "style='width:20%;'")%>%
       kable_classic(full_width = F, html_font = "Cambria") %>%
-      kable_styling(latex_options = "HOLD_position")%>%
-      pack_rows("Data Quality QA:", 1, 8) %>%
-      pack_rows("Operational QA:", 9, 14) %>%
-      add_header_above(c(" " = 1, setNames(6,can)))%>%
-      footnote(symbol = c("Values determined by a location at 892 ft above sea level "))
+      kable_styling(latex_options = "HOLD_position")
   }
-  
   output$draw_caltab <- function() { # use function above to render table in UI in app
     draw_caltab()
   }
-
+  
+  
   
   start.end.time_1 <- function(){ # create output for RMD
     req(getcaldata())
     req(input$singlenodestarttime)
     req(input$singlenodeendtime)
-    start_time <- as.POSIXct(input$singlenodestarttime) #, tz = "America/New_York"
-    end_time <- as.POSIXct(input$singlenodeendtime) #, tz = "America/New_York"
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    start_time <- as.POSIXct(input$singlenodestarttime, tz = TimeZone)
+    end_time <- as.POSIXct(input$singlenodeendtime, tz = TimeZone)
     start.end.time <- paste0(substr(start_time, start = 11, stop = 23), " to",
                              substr(end_time, start = 11, stop = 23))
     start.end.time
   }
   
   SN_1 <- function(){ # create output for RMD
-    req(input$file1)
-    inFile <- input$file1
-    if (is.null(inFile)){
-      return(NULL)
-    } else {
-      numfiles = nrow(inFile)
-      filelist_10 = list()
-      for (i in 1:numfiles)
-      {
-        Data_sensit <- fread(input$file1[[i, 'datapath']], fill = TRUE)}}
-    a <- input$file1$name[[i]]
-    node <- str_match(a, "Export_\\s*(.*?)\\s*_20")
-    ID <- node[,2]
-    SN <- paste0("SPOD", ID)
+    req(input$calunitselect)
+    SN <- input$calunitselect
     return(SN)
   }
-  
+
   date_1 <- function(){ # create output for RMD
     req(input$singlenodestarttime)
-    start_time <- as.POSIXct(input$singlenodestarttime) #, tz = "America/New_York"
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    start_time <- as.POSIXct(input$singlenodestarttime, tz = TimeZone)
     date <- paste0(substr(start_time, start = 1, stop = 10))
     date
   }
-  
+
   QATableID_1 <- function(){ # create output for RMD
     req(input$singlenodestarttime)
     req(input$singlenodeendtime)
-    start_time <- as.POSIXct(input$singlenodestarttime) #, tz = "America/New_York"
-    end_time <- as.POSIXct(input$singlenodeendtime) #, tz = "America/New_York"
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    start_time <- as.POSIXct(input$singlenodestarttime, tz = TimeZone)
+    end_time <- as.POSIXct(input$singlenodeendtime, tz = TimeZone)
     start.end.time <- start.end.time_1()
     Date <- date_1()
     Serial.number <- SN_1()
@@ -1266,7 +1459,7 @@ server <- function(input, output, session) {
     QATableID <- gsub("[[:punct:]]", "_", QA.table.ID)
     QATableID
   }
-  
+
   output$singlenodereport <- downloadHandler(
     filename = "single_node_QA_Table.html",
     content = function(file) {
@@ -1282,90 +1475,123 @@ server <- function(input, output, session) {
         QATableID_1 = QATableID_1(),
         Analyst = "_________________________________"
       )
-      
+
       rmarkdown::render(tempReport, output_file = file,
                         params = params,output_format = "html_document",
                         envir = new.env(parent = globalenv())
       )
     }
   )
-  
-  ######################################################### MULTI NODE  CALIBRATION
-  
-  # get cal data 1
-  getcaldata1 <- reactive({
-    req(input$multinodestarttime)
-    req(input$multinodeendtime)
-    req(input$file1multi)
-    duration <- as.numeric(input$durationInput2)
-    frequency_sec <- as.numeric(input$freqfile2)
-    
-    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
-    end_time <- as.POSIXct(input$multinodeendtime) #, tz = "America/New_York"
-    inFile <- input$file1multi
-    if (is.null(inFile)) {
-      return(NULL)
-    } else {
-      numfiles = nrow(inFile)
-      filelist_10 = list()
-      for (i in 1:numfiles)
-      {
-        Data_sensit <- fread(input$file1multi[[i, 'datapath']], select = c(2:19), skip = 2, fill = TRUE)
-        Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S") #, tz = "America/New_York"
-        #remove baseline #######
-        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 10))
-        # Calc u wind and v wind
-        Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
-        Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
-      }
-    }
-    
-    filtered0 <-
-      Data_sensit %>%
-      filter(timestamp >= start_time &  timestamp <= end_time)
-    #vectorize wind direction to avoid rounding errors between 0 and 360
-    filtered0$wd <- atan2(-1 *filtered0$u, -1 *filtered0$v)*180/pi + 180
-    filtered <- filtered0[,c(2,20,3:7, 23, 9:14)] #change to filtered version
-    #no exponent notation
-    options(scipen=999)
-    #fix trig flag cols
-    # build QA df for output file
-    Mean <- lapply(filtered, mean)
-    Median <- lapply(filtered, median)
-    StdDev <- lapply(filtered, sd)
-    Min <- lapply(filtered, min)
-    Max <- lapply(filtered, max)
-    N <- lapply(filtered,function(x) sum(!is.na(x)))
-    DataComp <- lapply(filtered,function(x) (sum(!is.na(x))/(duration/frequency_sec))*100)
 
-    #Round vals for table
-    Mean <- round(as.numeric(Mean), 1)
-    Median <- round(as.numeric(Median), 1)
-    StdDev <- round(as.numeric(StdDev), 1)
-    Min <- round(as.numeric(Min), 1)
-    Max <- round(as.numeric(Max), 1)
-    DataComp <- round(as.numeric(DataComp), 1)
-    xx <- cbind( Mean, Median, StdDev, Min, Max, DataComp)
-    xx
+
+
+
+
+
+
+  
+  # Multi Node Calibration Page Functions -----------------------------------
+  
+  # select between SPods for analysis 
+  output$calunitselect1 <- renderUI({
+    choice <-  unique(df_new()$Sensor_ID)
+    selectInput("calunitselect1",h4("Select unit:"), choices = choice, selected = choice[1])
   })
+  
+  # select between SPods for analysis 
+  output$calunitselect2 <- renderUI({
+    choice <-  unique(df_new()$Sensor_ID)
+    selectInput("calunitselect2",h4("Select unit:"), choices = choice, selected = choice[2])
+  })
+  
+  # make df for cal data unit 1
+  getcaldata1 <- reactive({ # make data for QA table, from base dataset entered in data_upload (df_new)
+    req(input$calunitselect1)
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    start_time2 <- as.POSIXct(input$multinodestarttime, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    end_time2 <- as.POSIXct(input$multinodeendtime, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    req(input$Time_column) 
+    DF <- df_new()
+    print(DF$Sensor_ID)
+    DF$Timestamp <- as.character(DF$Timestamp)
+    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
+    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats)
+    DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    DF_unit <-
+      DF %>%
+      filter(Sensor_ID == input$calunitselect1)
+    # fix lat/long capitalization issue....
+    names(DF_unit)[names(DF_unit) == 'lat'] <- 'Lat'
+    names(DF_unit)[names(DF_unit) == 'long'] <- 'Long'
+    #force cols to numeric if they exist ; create NA versions if they dont exist so QA can run 
+    DF_unit <- DF_unit %>% mutate(across(matches('Signal_1|WS|WD|Temp|RH|Canister'), as.numeric))
+    if(!'WS' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(WS = NA)
+    if(!'WD' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(WD = NA)
+    if(!'Signal_1' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Signal_1 = NA)
+    if(!'Canister' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Canister = NA)
+    if(!'Temp' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Temp = NA)
+    if(!'RH' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(RH = NA)
+    DF_unit <- as_data_frame(DF_unit)
+    filtered <-
+      DF_unit %>%
+      filter(Timestamp >= start_time2 & Timestamp <= end_time2)
+    filtered$u <- filtered$WS * sin(2 * pi * filtered$WD/360)
+    filtered$v <- filtered$WS * cos(2 * pi * filtered$WD/360)
+    filtered$WD <- atan2(-1 *filtered$u, -1 *filtered$v)*180/pi + 180
+    filtered_sum <- filtered %>%
+      select(where(is.numeric)) %>%
+      select(-any_of(c("Lat", "Long","u","v"))) %>%  
+      pivot_longer(cols = everything()) %>%
+      group_by(name) %>%
+      summarise(mean = mean(value, na.rm = TRUE), std = sd(value, na.rm = TRUE),
+                med = median(value, na.rm = TRUE), max = max(value, na.rm = TRUE), min = min(value, na.rm = TRUE),
+                n = (sum(!is.na(value))))
+    return(filtered_sum)
+  })
+  
+  
  
+  
   multinodetimestampstart <- reactive({
-    req(input$file1multi)
-    a <- input$file1multi$name
-    dateval <- str_match(a, "_20\\s*(.*?)\\s*.csv")
-    ID <- dateval[,2]
-    multinodetimestampstart <- as.character(paste0("20", ID, " 01:00:00"))
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    req(input$Time_column)  
+    req(input$calunitselect1)
+    print(input$calunitselect1)
+    DF <- df_new()
+    DF_unit <-
+      DF %>%
+      filter(Sensor_ID == input$calunitselect1) 
+    DF_unit$Timestamp <- as.character(DF_unit$Timestamp)
+    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
+    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats)
+    DF_unit$Timestamp <- as.POSIXct(DF_unit$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    DF_unit <- arrange(DF_unit, Timestamp)
+    multinodetimestampstart <- as.character(DF_unit$Timestamp[[1]])
   })
   output$multinodestarttime <- renderUI({
     textInput(inputId = "multinodestarttime", label = "Start Time:", value = multinodetimestampstart())
   })
   
+  
+  
   multinodetimestampend <- reactive({
-    req(input$file1multi)
-    a <- input$file1multi$name
-    dateval <- str_match(a, "_20\\s*(.*?)\\s*.csv")
-    ID <- dateval[,2]
-    multinodetimestampend <- as.character(paste0("20", ID, " 02:00:00"))
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    req(input$Time_column)  
+    req(input$calunitselect1)
+    print(input$calunitselect1)
+    DF <- df_new()
+    DF_unit <-
+      DF %>%
+      filter(Sensor_ID == input$calunitselect1) 
+    DF_unit$Timestamp <- as.character(DF_unit$Timestamp)
+    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
+    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats)
+    DF_unit$Timestamp <- as.POSIXct(DF_unit$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    DF_unit <- arrange(DF_unit, Timestamp)
+    multinodetimestampstart <- as.character(DF_unit$Timestamp[[2]])
     
   })
   output$multinodeendtime <- renderUI({
@@ -1373,89 +1599,109 @@ server <- function(input, output, session) {
   })
   
   
-  # make table for node 2 input
+  # make df for cal data unit 2
   getcaldata2 <- reactive({
-    req(input$multinodestarttime)
-    req(input$multinodeendtime)
-    req(input$file2multi)
-    req(input$durationInput2) 
-    req(input$freqfile2)
-    duration <- as.numeric(input$durationInput2)
-    frequency_sec <- as.numeric(input$freqfile2)
-    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
-    end_time <- as.POSIXct(input$multinodeendtime) # , tz = "America/New_York"
-    inFile <- input$file2multi
-    if (is.null(inFile)) {
-      return(NULL)
-    } else {
-      numfiles = nrow(inFile)
-      filelist_10 = list()
-      for (i in 1:numfiles)
-      {
-        Data_sensit <- fread(input$file2multi[[i, 'datapath']], select = c(2:19), skip = 2, fill = TRUE)
-        Data_sensit$timestamp <- as.POSIXct(Data_sensit$`Local Date Time`,format = "%d-%b-%Y %H:%M:%S", tz = "America/New_York")
-        #remove baseline #######
-        Data_sensit$bc_pid <- (Data_sensit$pid1_PPB_Calc - getBaseline(Data_sensit$pid1_PPB_Calc, Data_sensit$timestamp, df = 10))
-        # Calc u wind and v wind
-        Data_sensit$u <- Data_sensit$ws_speed * sin(2 * pi * Data_sensit$ws_direction/360)
-        Data_sensit$v <- Data_sensit$ws_speed * cos(2 * pi * Data_sensit$ws_direction/360)
-      }
-    }
-    filtered0 <-
-      Data_sensit %>%
-      filter(timestamp >= start_time &  timestamp <= end_time)
-    #vectorize wind direction to avoid rounding errors between 0 and 360
-    filtered0$wd <- atan2(-1 *filtered0$u, -1 *filtered0$v)*180/pi + 180
-    filtered <- filtered0[,c(2,20,3:7, 23, 9:14)] #change to filtered version
-    options(scipen=999)    #no exponent notation
-    # build QA df for output file
-    Mean <- lapply(filtered, mean)
-    Median <- lapply(filtered, median)
-    StdDev <- lapply(filtered, sd)
-    Min <- lapply(filtered, min)
-    Max <- lapply(filtered, max)
-    N <- lapply(filtered,function(x) sum(!is.na(x)))
-    DataComp <- lapply(filtered,function(x) (sum(!is.na(x))/(duration/frequency_sec))*100)
-    #Round vals for table
-    Mean <- round(as.numeric(Mean), 1)
-    Median <- round(as.numeric(Median), 1)
-    StdDev <- round(as.numeric(StdDev),1)
-    Min <- round(as.numeric(Min), 1)
-    Max <- round(as.numeric(Max), 1)
-    DataComp <- round(as.numeric(DataComp), 1)
-    xx <- cbind( Mean, Median, StdDev, Min, Max, DataComp)
-    xx
+    req(input$calunitselect2)
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    start_time2 <- as.POSIXct(input$multinodestarttime, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    end_time2 <- as.POSIXct(input$multinodeendtime, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    req(input$Time_column) 
+    DF <- df_new()
+    #print(DF$Sensor_ID)
+    DF$Timestamp <- as.character(DF$Timestamp)
+    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
+    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats)
+    DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    DF_unit <-
+      DF %>%
+      filter(Sensor_ID == input$calunitselect2)
+    # fix lat/long capitalization issue....
+    names(DF_unit)[names(DF_unit) == 'lat'] <- 'Lat'
+    names(DF_unit)[names(DF_unit) == 'long'] <- 'Long'
+    #force cols to numeric if they exist ; create NA versions if they dont exist so QA can run 
+    DF_unit <- DF_unit %>% mutate(across(matches('Signal_1|WS|WD|Temp|RH|Canister'), as.numeric))
+    if(!'WS' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(WS = NA)
+    if(!'WD' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(WD = NA)
+    if(!'Signal_1' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Signal_1 = NA)
+    if(!'Canister' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Canister = NA)
+    if(!'Temp' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Temp = NA)
+    if(!'RH' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(RH = NA)
+    DF_unit <- as_data_frame(DF_unit)
+    filtered <-
+      DF_unit %>%
+      filter(Timestamp >= start_time2 & Timestamp <= end_time2)
+    filtered$u <- filtered$WS * sin(2 * pi * filtered$WD/360)
+    filtered$v <- filtered$WS * cos(2 * pi * filtered$WD/360)
+    filtered$WD <- atan2(-1 *filtered$u, -1 *filtered$v)*180/pi + 180
+    filtered_sum <- filtered %>%
+      select(where(is.numeric)) %>%
+      select(-any_of(c("Lat", "Long","u","v"))) %>%  
+      pivot_longer(cols = everything()) %>%
+      group_by(name) %>%
+      summarise(mean = mean(value, na.rm = TRUE), std = sd(value, na.rm = TRUE),
+                med = median(value, na.rm = TRUE), max = max(value, na.rm = TRUE), min = min(value, na.rm = TRUE),
+                n = (sum(!is.na(value))))
+    print("Caldata2")
+     print(filtered_sum)
+    return(filtered_sum)
   })
   
+  
+
   draw_subcaltab <- function(){ # create output for RMD
     req(getcaldata1())
     req(getcaldata2())
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
     req(input$multinodestarttime)
     req(input$multinodeendtime)
-    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
-    end_time <- as.POSIXct(input$multinodeendtime) #, tz = "America/New_York"
+    start_time_table <- as.POSIXct(input$multinodestarttime, tz = TimeZone)
+    end_time_table <- as.POSIXct(input$multinodeendtime, tz = TimeZone)
+    req(input$calunitselect1)
+    req(input$calunitselect2)
+    unit1 <- input$calunitselect1 
+    unit2 <- input$calunitselect2
+     
+    caldata1 <- as.data.frame(getcaldata1())
+    caldata2 <- as.data.frame(getcaldata2())
     
-    xx1 <- getcaldata1() # build matrix 1
-    xx1 <- xx1[,c(1:6)]
-    t1 <- matrix(as.numeric(unlist(xx1)),nrow=nrow(xx1))
+    # remove any rows that ended up completely NA
+    caldata1[sapply(caldata1, is.infinite)] <- NA
+    caldata1[caldata1 == "NaN"] <- NA
+    caldata1_sub <- caldata1 %>% filter(if_any(c(mean, std, med, max,min), ~ !is.na(.)))
+  
+    caldata2[sapply(caldata2, is.infinite)] <- NA
+    caldata2[caldata2 == "NaN"] <- NA
+    caldata2_sub <- caldata2 %>% filter(if_any(c(mean, std, med, max,min), ~ !is.na(.)))
+   
+    #limit to rows present in both table
+    caldata2_sub <- caldata2_sub[rownames(caldata1_sub),] 
     
-    xx2 <- getcaldata2() # build matrix 2
-    xx2 <- xx2[,c(1:6)]
-    t2 <- matrix(as.numeric(unlist(xx2)),nrow=nrow(xx2))
+    #xxsub <- round(caldata1_sub - caldata2_sub,2)
+    tab <- merge(caldata1_sub, caldata2_sub, by = "name")
+    tab <- tab[,c(1,2,8,3,9,4,10,5,11,6,12,7,13)]
+    tab <- as.data.frame(tab)
+    colnames(tab) <- c("Variable", 
+                       str_sub(unit1,-4,-1), str_sub(unit2,-4,-1),
+                       str_sub(unit1,-4,-1), str_sub(unit2,-4,-1),
+                       str_sub(unit1,-4,-1), str_sub(unit2,-4,-1),
+                       str_sub(unit1,-4,-1), str_sub(unit2,-4,-1),
+                       str_sub(unit1,-4,-1), str_sub(unit2,-4,-1),
+                       str_sub(unit1,-4,-1), str_sub(unit2,-4,-1) )
     
-    xxsub <- round(t1 - t2,2)
-    xxsub <- as.data.frame(xxsub)
-    rownames(xxsub) <- c("Raw PID (ppb)", "BC PID (ppb)","Raw PID (mV)", "Temp (Deg C)","RH (percent)", "Pressure (mBar)","WS (mph)","WD (deg)","S1 temp (arb)","S1 Heat (0-255)",
-                         "S1 Set (arb)","Bat volt (V)","Charge Current (mA)","Operate Current (mA)")
-    colnames(xxsub) <- c("Mean","Median", "StdDev", "Min", "Max", "DataComp" )
-    
-      xxsub %>%
-      kbl(escape = F, caption = paste0(start_time, " to ", end_time), digits = 2, table.attr = "style='width:20%;'") %>%
+    tab %>%
+      kbl(escape = F, caption = paste0(start_time_table, " to ", end_time_table), digits = 2, table.attr = "style='width:20%;'") %>%
       kable_classic(full_width = F, html_font = "Cambria") %>%
-      kable_styling(latex_options = "HOLD_position")%>%
-      pack_rows("Data Quality QA:", 1, 8) %>%
-      pack_rows("Operational QA:", 9, 14)%>%
-      footnote(symbol = c("Values determined by a location at 892 ft above sea level "))
+      kable_styling(latex_options = "HOLD_position")   %>% 
+      add_header_above(header = c(" " = 1, "Mean" = 2,"St. Dev." = 2, "Median" = 2,"Maximum" = 2,"Minimum" = 2,"Count" = 2))%>%
+      column_spec(1, border_right=T) %>%
+      column_spec(3, border_right=T) %>%
+      column_spec(5, border_right=T) %>%
+      column_spec(7, border_right=T) %>%
+      column_spec(9, border_right=T) %>%
+      column_spec(11, border_right=T)
+
   }
   
   # table of sub caldata 1 - cal data 2
@@ -1463,60 +1709,54 @@ server <- function(input, output, session) {
     draw_subcaltab()
   }
   
+  
+  
+  
+  
+  
+  
+  
+  
   start.end.time2 <- function(){ # create output for RMD
     req(getcaldata1())
-    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
-    end_time <- as.POSIXct(input$multinodeendtime) #, tz = "America/New_York"
+    req(input$multinodestarttime)
+    req(input$multinodeendtime)
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    start_time <- as.POSIXct(input$multinodestarttime, tz = TimeZone)
+    end_time <- as.POSIXct(input$multinodeendtime, tz = TimeZone)
     start.end.time <- paste0(substr(start_time, start = 11, stop = 23), " to",
                              substr(end_time, start = 11, stop = 23))
     start.end.time
   }
   
   SN1 <- function(){ # create output for RMD
-    req(input$file1multi)
-    inFile <- input$file1multi
-    if (is.null(inFile)){
-      return(NULL)
-    } else {
-      numfiles = nrow(inFile)
-      filelist_10 = list()
-      for (i in 1:numfiles)
-      {
-        Data_sensit <- fread(input$file1multi[[i, 'datapath']], fill = TRUE)}}
-    a <- input$file1multi$name[[i]]
-    node <- str_match(a, "Export_\\s*(.*?)\\s*_20")
-    ID <- node[,2]
-    SN <- paste0("SPOD", ID)
-    return(SN)
+    req(input$calunitselect1)
+    SN1 <- input$calunitselect1
+    return(SN1)
   }
   
   SN2 <- function(){ # create output for RMD
-    req(input$file2multi)
-    inFile <- input$file2multi
-    if (is.null(inFile)){
-      return(NULL)
-    } else {
-      numfiles = nrow(inFile)
-      filelist_10 = list()
-      for (i in 1:numfiles)
-      {
-        Data_sensit <- fread(input$file2multi[[i, 'datapath']], fill = TRUE)}}
-    a <- input$file2multi$name[[i]]
-    node <- str_match(a, "Export_\\s*(.*?)\\s*_20")
-    ID <- node[,2]
-    SN <- paste0("SPOD", ID)
-    return(SN)
+    req(input$calunitselect2)
+    SN2 <- input$calunitselect2
+    return(SN2)
   }
   
   date2 <- function(){ # create output for RMD
-    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
+   req(input$multinodestarttime)
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    start_time <- as.POSIXct(input$multinodestarttime, tz = TimeZone)
     date <- paste0(substr(start_time, start = 1, stop = 10))
     date
   }
   
+  
   QATableID2 <- function(){ # create output for RMD
-    start_time <- as.POSIXct(input$multinodestarttime) #, tz = "America/New_York"
-    end_time <- as.POSIXct(input$multinodeendtime) #, tz = "America/New_York"
+    req(input$Time_Zone)
+    TimeZone <- input$Time_Zone
+    start_time <- as.POSIXct(input$multinodestarttime, tz = TimeZone)
+    end_time <- as.POSIXct(input$multinodeendtime, tz = TimeZone)
     start.end.time <- start.end.time2()
     Date <- date2()
     Serial.number1 <- SN1()
@@ -1526,6 +1766,8 @@ server <- function(input, output, session) {
     QATableID <- gsub("[[:punct:]]", "_", QA.table.ID)
     QATableID
   }
+  
+  
   
   output$multinodereport <- downloadHandler(
     filename = "multi_node_QA_Table.html",
@@ -1551,40 +1793,10 @@ server <- function(input, output, session) {
     }
   )
   
-  
-  
-  
-  ######################################################### table output
-  output$datatab <-  DT::renderDataTable({
-    spod_all_5_tab <-  spod_all_5min()
-    spod_all_5_tab <- spod_all_5_tab %>%
-      mutate_if(is.numeric, round, digits = 2)
-    
-    spod_all_5_tab$time <- as.character(strptime(spod_all_5_tab$time, "%Y-%m-%d %H:%M"))
-    spod_all_5_tab <- spod_all_5_tab %>% drop_na(time)
-    
-    DT::datatable(spod_all_5_tab,filter = 'top',  
-                  options = list(
-                    autoWidth = FALSE, scrollX = TRUE,
-                    pageLength = 25)
-    #%>% formatDate(1, "toLocaleString")
-                  )
-  })
-  
-  output$Download <-
-    downloadHandler(
-      filename = function () {
-        paste("SENTINELData.csv", sep = "")
-      },
-      content = function(file) {
-        write.csv(spod_all_5min(), file)
-      }
-    )
 
-  ######################################################### 
-} # end of server
+  
+}
 
-
-shinyApp(ui, server) # run app :)
+shinyApp(ui, server)   
 
 
