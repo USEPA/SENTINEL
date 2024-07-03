@@ -45,7 +45,7 @@ library(rmarkdown)
 
 library(htmltools)
 library(devtools)  
-#install_github("davidcarslaw/openairmaps")  ## make sure this is run the first time running the app
+#install_github("davidcarslaw/openairmaps", force = TRUE)  ## make sure this is run the first time running the app
 library(openairmaps)  
 
 # baseline Functions
@@ -139,7 +139,7 @@ ui <- dashboardPage( ###################################################### buil
       tabItem(tabName = "DataUpload", 
               tags$style(type="text/css",
                          ".shiny-output-error { visibility: hidden; }",
-                         ".shiny-output-error:before { visibility: visible; content: 'Timestamp and Sensor ID must be identified to generate Table'; }"
+                         ".shiny-output-error:before { visibility: visible; content: 'Timestamp,Sensor ID, and Signal 1 must be identified to generate Table '; }"
               ),
               h4("Upload one or more data files from any number of sensors of the same type in .csv format. 
                  Files should all have the same structure but can be from different unit IDs. 
@@ -168,6 +168,7 @@ ui <- dashboardPage( ###################################################### buil
                                   uiOutput("ID_column"),
                                   uiOutput("Time_column"),
                                   uiOutput("Time_Zone"),
+                                  selectInput("Time_format", "Time Format", c("%d-%b-%Y %H:%M:%S","%Y-%m-%d %H:%M:%S","%m-%d-%Y %H:%M:%S","%d-%m-%Y %H:%M:%S","%m/%d/%y %H:%M:%S", "%m/%d/%Y %H:%M:%S"), selected = "%d-%b-%Y %H:%M:%S"),
                                   
                                 ),
                                 tabPanel(
@@ -305,7 +306,6 @@ ui <- dashboardPage( ###################################################### buil
               ),
               br(),
               br(),
-              br(),
               fluidRow( ### Time Series plots box
                 tabBox(
                   title = "Time Series",side = "right",
@@ -376,7 +376,8 @@ ui <- dashboardPage( ###################################################### buil
                        downloadButton("multinodereport", "Generate report")
                        )
               ),
-              box(tableOutput("draw_subcaltab"), width = 12)
+              box(tableOutput("draw_subcaltab"), width = 12),
+              box(plotlyOutput("SensorAgreement_buildplot"), width = 12)
               
       ),
       
@@ -635,12 +636,15 @@ server <- function(input, output) {
     DF = hot_to_r(input$upload_table)
     DF <- as.data.frame(DF)
     DF$wsunit <- WSunit
-    
+    time_format <- input$Time_format
     ##################### Data prep and cleaning
-    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S", "%m/%d%y %H:%M:%S", "%m/%d%Y %H:%M:%S" )
-    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats)
-    DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
-
+    
+    #####MEGAN REPLACE W?NUMERICS
+    #formats <- c( "%d-%b-%Y %H:%M:%S","%Y-%m-%d %H:%M:%S", "%m/%d/%y %H:%M:%S", "%m/%d/%Y %H:%M:%S" )
+    formats <- time_format
+    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats, tz = TimeZone)
+    #DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
+    #print(DF$Timestamp)
     #force cols to numeric if they exist ; create NA versions if they dont exist so QA can run 
     DF <- DF %>% mutate(across(matches('Signal_1|WS|WD|Temp|RH|Canister|Lat|Long'), as.numeric))
     if(!'WS' %in% names(DF)) DF <- DF %>% mutate(WS = NA)
@@ -653,6 +657,7 @@ server <- function(input, output) {
     if(!'RH' %in% names(DF)) DF <- DF %>% mutate(RH = NA)
 
     DF <- as_data_frame(DF)
+    
     # apply wind speed correction to m/s
     DF$WS_mps <- as.numeric(DF$WS) / as.numeric(DF$wsunit,2)
     
@@ -662,8 +667,8 @@ server <- function(input, output) {
     # Check for lat and long // round to prevent slightly off coordinates // return 0 to NA for mapping
     if(!'Lat' %in% names(DF)) DF <- DF %>% add_column(Lat = 0)
     if(!'Long' %in% names(DF)) DF <- DF %>% add_column(Long = 0)
-    DF$Lat <- round(DF$Lat, 4)
-    DF$Long <- round(DF$Long, 4)
+    DF$Lat <- round(DF$Lat, 3)
+    DF$Long <- round(DF$Long, 3)
     DF$Lat[is.na(DF$Lat)] <- 0
     DF$Long[is.na(DF$Long)] <- 0
     
@@ -685,11 +690,13 @@ server <- function(input, output) {
     ######################## end of AutoQA Flagging
     # Baseline Correction (default to 10)
     DF$bc <- (DF$Signal_1 - getBaseline(DF$Signal_1, DF$Timestamp, df = 10))
+  
     # roll up to 5 min
     timeBase <- "5 min"
     timeBreaks <- seq(round(min(DF$Timestamp, na.rm = T), "min"),
                       round(max(DF$Timestamp, na.rm = T), "min"), timeBase)
     DF$timecut <- cut(DF$Timestamp, timeBreaks)
+   
     # average vals to 5 min
     Data_5 <- DF %>%
       dplyr::group_by(Sensor_ID, timecut) %>%
@@ -708,7 +715,7 @@ server <- function(input, output) {
       )
     #calc WD based on U and V (leave WS as a scalar calc)
     Data_5$wd <- atan2(-Data_5$U, -Data_5$V)*180/pi + 180
-    print(sum(is.na(Data_5$timecut)))
+    #print(sum(is.na(Data_5$timecut)))
     return(Data_5)
   })
   
@@ -728,14 +735,14 @@ server <- function(input, output) {
     TimeZone <- input$Time_Zone
     df <- as.data.frame(data_5min())
     df$timecut <- as.POSIXct(df$timecut, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
-    
+    #df$timecut <- lubridate::parse_date_time(df$timecut,orders = "ymd HMS", tz = TimeZone)
     summary <- df %>%
       dplyr::group_by(Sensor_ID) %>%
       dplyr::summarise(
         Start_Time = min(timecut, na.rm = T),
         End_Time = max(timecut, na.rm = T),
         Lat = unique(Lat),
-        Long = unique(Lat),
+        Long = unique(Long),
         Count = n(), 
         QA =paste(unique(QA), collapse = ', '),
         Canister = paste(unique(Canister), collapse = ', ')
@@ -1300,9 +1307,10 @@ server <- function(input, output) {
   # build single node df
   getcaldata <- reactive({ # make data for QA table, from base dataset entered in data_upload (df_new)
     req(input$calunitselect)
-    print(input$calunitselect)
     req(input$freqfile)
     req(input$Time_Zone)
+    req(input$Time_format)
+    time_format <- input$Time_format
     TimeZone <- input$Time_Zone
     duration <- as.numeric(input$durationInput)
     frequency_sec <- as.numeric(input$freqfile)
@@ -1311,8 +1319,8 @@ server <- function(input, output) {
     req(input$Time_column) 
     DF <- df_new()
     DF$Timestamp <- as.character(DF$Timestamp)
-    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
-    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats)
+    formats <- time_format
+    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats, tz = TimeZone)
     DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     DF_unit <-
       DF %>%
@@ -1335,14 +1343,20 @@ server <- function(input, output) {
     filtered$u <- filtered$WS * sin(2 * pi * filtered$WD/360)
     filtered$v <- filtered$WS * cos(2 * pi * filtered$WD/360)
     filtered$WD <- atan2(-1 *filtered$u, -1 *filtered$v)*180/pi + 180
+    print("filtered")
+    
+    #filtered$Signal_BC <- ifelse(nrow(filtered)> 10,(filtered$Signal_1 - getBaseline(filtered$Signal_1, filtered$Timestamp, df = 10)), NA )
+    filtered$Signal_BC <- filtered$Signal_1 - getBaseline(filtered$Signal_1, filtered$Timestamp, df = 10)
+    print(filtered)
     filtered_sum <- filtered %>%
       select(where(is.numeric)) %>%
       select(-any_of(c("Lat", "Long","u","v"))) %>%  
       pivot_longer(cols = everything()) %>%
       group_by(name) %>%
-      summarise(mean = mean(value, na.rm = TRUE), std = sd(value, na.rm = TRUE),
+      dplyr::summarise(mean = mean(value, na.rm = TRUE), std = sd(value, na.rm = TRUE),
                 med = median(value, na.rm = TRUE), max = max(value, na.rm = TRUE), min = min(value, na.rm = TRUE),
                 comp = (sum(!is.na(value))/(duration/frequency_sec))*100)
+    print(filtered_sum)
     return(filtered_sum)
   })
   
@@ -1355,14 +1369,15 @@ server <- function(input, output) {
     TimeZone <- input$Time_Zone
     req(input$Time_column)  
     req(input$calunitselect)
-    print(input$calunitselect)
+    req(input$Time_format)
+    time_format <- input$Time_format
     DF <- df_new()
     DF_unit <-
       DF %>%
       filter(Sensor_ID == input$calunitselect) 
     DF_unit$Timestamp <- as.character(DF_unit$Timestamp)
-    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
-    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats)
+    formats <- time_format
+    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats, tz = TimeZone)
     DF_unit$Timestamp <- as.POSIXct(DF_unit$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     DF_unit <- arrange(DF_unit, Timestamp)
     singlenodetimestampstart <- as.character(DF_unit$Timestamp[[1]])
@@ -1378,14 +1393,15 @@ server <- function(input, output) {
     TimeZone <- input$Time_Zone
     req(input$Time_column)  
     req(input$calunitselect)
-    print(input$calunitselect)
+    req(input$Time_format)
+    time_format <- input$Time_format
     DF <- df_new()
     DF_unit <-
       DF %>%
       filter(Sensor_ID == input$calunitselect) 
     DF_unit$Timestamp <- as.character(DF_unit$Timestamp)
-    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
-    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats)
+    formats <- time_format
+    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats, tz = TimeZone)
     DF_unit$Timestamp <- as.POSIXct(DF_unit$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     DF_unit <- arrange(DF_unit, Timestamp)
     singlenodetimestampend <- as.character(DF_unit$Timestamp[[2]])
@@ -1404,6 +1420,7 @@ server <- function(input, output) {
      end_time <- as.character(input$singlenodeendtime, tz = "America/New_York")
     caltab <- getcaldata()
     caltab <- as.data.frame(caltab)
+    #print(caltab)
     names(caltab) <- c("Variable", "Mean", "SD", "Median", "Max", "Min", "% Complete")
     caltab %>%
       kbl(escape = F, caption = paste0(start_time, " to ", end_time), digits = 2, table.attr = "style='width:20%;'")%>%
@@ -1486,9 +1503,8 @@ server <- function(input, output) {
 
 
 
-
-
-
+  
+  
   
   # Multi Node Calibration Page Functions -----------------------------------
   
@@ -1505,18 +1521,19 @@ server <- function(input, output) {
   })
   
   # make df for cal data unit 1
-  getcaldata1 <- reactive({ # make data for QA table, from base dataset entered in data_upload (df_new)
+  getcaldata1_base <- reactive({ # make data for QA table, from base dataset entered in data_upload (df_new)
     req(input$calunitselect1)
     req(input$Time_Zone)
+    req(input$Time_format)
+    time_format <- input$Time_format
     TimeZone <- input$Time_Zone
     start_time2 <- as.POSIXct(input$multinodestarttime, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     end_time2 <- as.POSIXct(input$multinodeendtime, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     req(input$Time_column) 
     DF <- df_new()
-    print(DF$Sensor_ID)
     DF$Timestamp <- as.character(DF$Timestamp)
-    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
-    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats)
+    formats <- time_format
+    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats, tz = TimeZone)
     DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     DF_unit <-
       DF %>%
@@ -1539,33 +1556,45 @@ server <- function(input, output) {
     filtered$u <- filtered$WS * sin(2 * pi * filtered$WD/360)
     filtered$v <- filtered$WS * cos(2 * pi * filtered$WD/360)
     filtered$WD <- atan2(-1 *filtered$u, -1 *filtered$v)*180/pi + 180
-    filtered_sum <- filtered %>%
+    filtered$Signal_BC <- filtered$Signal_1 - getBaseline(filtered$Signal_1, filtered$Timestamp, df = 10)
+    filtered$unit <- as.character(input$calunitselect1)
+    
+    print(filtered)
+    return(filtered)
+  })
+  
+  
+  # make df for cal data unit 1
+  getcaldata1 <- reactive({ # make data for QA table, from base dataset entered in data_upload (df_new)
+    filtered1 <- as_data_frame(getcaldata1_base())
+    filtered_sum <- filtered1 %>%
       select(where(is.numeric)) %>%
       select(-any_of(c("Lat", "Long","u","v"))) %>%  
       pivot_longer(cols = everything()) %>%
       group_by(name) %>%
-      summarise(mean = mean(value, na.rm = TRUE), std = sd(value, na.rm = TRUE),
-                med = median(value, na.rm = TRUE), max = max(value, na.rm = TRUE), min = min(value, na.rm = TRUE),
-                n = (sum(!is.na(value))))
+      dplyr::summarise(mean = mean(value, na.rm = TRUE), std = sd(value, na.rm = TRUE),
+                       med = median(value, na.rm = TRUE), max = max(value, na.rm = TRUE), min = min(value, na.rm = TRUE),
+                       n = (sum(!is.na(value))))
     return(filtered_sum)
   })
   
   
- 
+  
   
   multinodetimestampstart <- reactive({
     req(input$Time_Zone)
     TimeZone <- input$Time_Zone
     req(input$Time_column)  
     req(input$calunitselect1)
-    print(input$calunitselect1)
+    req(input$Time_format)
+    time_format <- input$Time_format
     DF <- df_new()
     DF_unit <-
       DF %>%
       filter(Sensor_ID == input$calunitselect1) 
     DF_unit$Timestamp <- as.character(DF_unit$Timestamp)
-    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
-    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats)
+    formats <- time_format
+    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats, tz = TimeZone)
     DF_unit$Timestamp <- as.POSIXct(DF_unit$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     DF_unit <- arrange(DF_unit, Timestamp)
     multinodetimestampstart <- as.character(DF_unit$Timestamp[[1]])
@@ -1581,14 +1610,15 @@ server <- function(input, output) {
     TimeZone <- input$Time_Zone
     req(input$Time_column)  
     req(input$calunitselect1)
-    print(input$calunitselect1)
+    req(input$Time_format)
+    time_format <- input$Time_format
     DF <- df_new()
     DF_unit <-
       DF %>%
       filter(Sensor_ID == input$calunitselect1) 
     DF_unit$Timestamp <- as.character(DF_unit$Timestamp)
-    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
-    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats)
+    formats <- time_format
+    DF_unit$Timestamp <- lubridate::parse_date_time(DF_unit$Timestamp, formats, tz = TimeZone)
     DF_unit$Timestamp <- as.POSIXct(DF_unit$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     DF_unit <- arrange(DF_unit, Timestamp)
     multinodetimestampstart <- as.character(DF_unit$Timestamp[[2]])
@@ -1600,9 +1630,11 @@ server <- function(input, output) {
   
   
   # make df for cal data unit 2
-  getcaldata2 <- reactive({
+  getcaldata2_base <- reactive({
     req(input$calunitselect2)
     req(input$Time_Zone)
+    req(input$Time_format)
+    time_format <- input$Time_format
     TimeZone <- input$Time_Zone
     start_time2 <- as.POSIXct(input$multinodestarttime, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     end_time2 <- as.POSIXct(input$multinodeendtime, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
@@ -1610,8 +1642,8 @@ server <- function(input, output) {
     DF <- df_new()
     #print(DF$Sensor_ID)
     DF$Timestamp <- as.character(DF$Timestamp)
-    formats <- c("%Y-%m-%d %H:%M:%S", "%d-%b-%Y %H:%M:%S" )
-    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats)
+    formats <- time_format
+    DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats, tz = TimeZone)
     DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     DF_unit <-
       DF %>%
@@ -1634,21 +1666,30 @@ server <- function(input, output) {
     filtered$u <- filtered$WS * sin(2 * pi * filtered$WD/360)
     filtered$v <- filtered$WS * cos(2 * pi * filtered$WD/360)
     filtered$WD <- atan2(-1 *filtered$u, -1 *filtered$v)*180/pi + 180
-    filtered_sum <- filtered %>%
+    filtered$Signal_BC <- filtered$Signal_1 - getBaseline(filtered$Signal_1, filtered$Timestamp, df = 10)
+    filtered$unit <- as.character(input$calunitselect2)
+    print(filtered)
+    return(filtered)
+  })  
+  
+  
+  
+  
+  # make df for cal data unit 2
+  getcaldata2 <- reactive({ # make data for QA table, from base dataset entered in data_upload (df_new)
+    filtered2<- as_data_frame(getcaldata2_base())
+    filtered_sum <- filtered2 %>%
       select(where(is.numeric)) %>%
       select(-any_of(c("Lat", "Long","u","v"))) %>%  
       pivot_longer(cols = everything()) %>%
       group_by(name) %>%
-      summarise(mean = mean(value, na.rm = TRUE), std = sd(value, na.rm = TRUE),
-                med = median(value, na.rm = TRUE), max = max(value, na.rm = TRUE), min = min(value, na.rm = TRUE),
-                n = (sum(!is.na(value))))
-    print("Caldata2")
-     print(filtered_sum)
+      dplyr::summarise(mean = mean(value, na.rm = TRUE), std = sd(value, na.rm = TRUE),
+                       med = median(value, na.rm = TRUE), max = max(value, na.rm = TRUE), min = min(value, na.rm = TRUE),
+                       n = (sum(!is.na(value))))
     return(filtered_sum)
   })
   
   
-
   draw_subcaltab <- function(){ # create output for RMD
     req(getcaldata1())
     req(getcaldata2())
@@ -1662,7 +1703,7 @@ server <- function(input, output) {
     req(input$calunitselect2)
     unit1 <- input$calunitselect1 
     unit2 <- input$calunitselect2
-     
+    
     caldata1 <- as.data.frame(getcaldata1())
     caldata2 <- as.data.frame(getcaldata2())
     
@@ -1670,11 +1711,11 @@ server <- function(input, output) {
     caldata1[sapply(caldata1, is.infinite)] <- NA
     caldata1[caldata1 == "NaN"] <- NA
     caldata1_sub <- caldata1 %>% filter(if_any(c(mean, std, med, max,min), ~ !is.na(.)))
-  
+    
     caldata2[sapply(caldata2, is.infinite)] <- NA
     caldata2[caldata2 == "NaN"] <- NA
     caldata2_sub <- caldata2 %>% filter(if_any(c(mean, std, med, max,min), ~ !is.na(.)))
-   
+    
     #limit to rows present in both table
     caldata2_sub <- caldata2_sub[rownames(caldata1_sub),] 
     
@@ -1701,7 +1742,7 @@ server <- function(input, output) {
       column_spec(7, border_right=T) %>%
       column_spec(9, border_right=T) %>%
       column_spec(11, border_right=T)
-
+    
   }
   
   # table of sub caldata 1 - cal data 2
@@ -1743,7 +1784,7 @@ server <- function(input, output) {
   }
   
   date2 <- function(){ # create output for RMD
-   req(input$multinodestarttime)
+    req(input$multinodestarttime)
     req(input$Time_Zone)
     TimeZone <- input$Time_Zone
     start_time <- as.POSIXct(input$multinodestarttime, tz = TimeZone)
@@ -1793,7 +1834,114 @@ server <- function(input, output) {
     }
   )
   
+  
+  
+  
+  ##### Megan testing here ####
+  
+  SensorAgreement_build <- reactive({# sensor agreement plot
 
+
+    # req(input$Signal_units)
+    # req(input$calunit1select)
+    
+    req(getcaldata1_base())
+    cal1 <- as_data_frame(getcaldata1_base())
+    cal1 <- cal1 %>%
+      select(Signal_BC, Timestamp, unit)
+    req(getcaldata2_base())
+    cal2 <- as_data_frame(getcaldata2_base())
+    cal2 <- cal2 %>%
+      select(Signal_BC, Timestamp, unit)
+    df <- rbind(cal1,cal2)
+    print(df)
+    p <-
+      plot_ly(
+        cal1,
+        x = ~ Timestamp,
+        y = ~ Signal_BC,
+        color = ~unit,
+        type = "scatter",
+        mode = "lines",
+        showlegend = F,
+        line = list(color = "darkgreen"), connectgaps = FALSE) %>%
+      layout(
+             yaxis = list(title = paste0( " Corrected Signal (",input$Signal_units, ")"), showgrid = FALSE, showline = TRUE, mirror=TRUE, tickfont = list(size = 22)),
+             xaxis = list( showgrid = FALSE, showline = TRUE, mirror=TRUE, showticklabels = FALSE, tickfont = list(size = 22)),
+             scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
+                          yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
+                          showlegend= FALSE)
+      )
+    p <- p %>% layout(showlegend = FALSE)
+    
+   q <-
+      plot_ly(
+        cal2,
+        x = ~ Timestamp,
+        y = ~ Signal_BC,
+        color = ~unit,
+        type = "scatter",
+        mode = "lines",
+        showlegend = F,
+        line = list(color = "navy"),  connectgaps = FALSE) %>%
+      layout(
+             yaxis = list(title = paste0(" Corrected Signal (",input$Signal_units, ")"), showgrid = FALSE, showline = TRUE, mirror=TRUE, tickfont = list(size = 22)),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n %H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE, tickfont = list(size = 22)),
+             scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
+                          yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
+                          showlegend= FALSE)
+      ) 
+   q <- q %>% layout(showlegend = FALSE)
+    #q
+   subplot(p,q, nrows = 2)
+    
+   # p <-  df %>%
+   #    group_by(unit) %>%
+   #    do(p=plot_ly(., x = ~Timestamp, y = ~Signal_1, color = ~unit,
+   #                 colors = c("darkgreen", "navy"), type = "scatter",  mode = "lines",  showlegend = T, connectgaps = FALSE)) %>%
+   #    subplot(nrows = 2, shareX = TRUE, shareY = TRUE) %>%
+   #   layout(showlegend = T,
+   #          yaxis = list(title = paste0 ("Raw Signal (",input$Signal_units, ")"), showgrid = FALSE, showline = TRUE, mirror=TRUE),
+   #          legend = list(
+   #            orientation = "h",
+   #            x = 0.3,
+   #            y = -0.5
+   #          ),
+   #          xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
+   #          scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
+   #                       yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE)))
+   #  
+   #  p
+   #  # 
+   #  
+    
+    
+    
+  })
+  
+  output$SensorAgreement_buildplot <- renderPlotly({ # baseline correction plot
+    SensorAgreement_build()
+  })
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
 }
 
