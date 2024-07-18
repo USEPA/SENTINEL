@@ -638,13 +638,10 @@ server <- function(input, output) {
     DF$wsunit <- WSunit
     time_format <- input$Time_format
     ##################### Data prep and cleaning
-    
-    #####MEGAN REPLACE W?NUMERICS
     #formats <- c( "%d-%b-%Y %H:%M:%S","%Y-%m-%d %H:%M:%S", "%m/%d/%y %H:%M:%S", "%m/%d/%Y %H:%M:%S" )
     formats <- time_format
     DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats, tz = TimeZone)
     #DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
-    #print(DF$Timestamp)
     #force cols to numeric if they exist ; create NA versions if they dont exist so QA can run 
     DF <- DF %>% mutate(across(matches('Signal_1|WS|WD|Temp|RH|Canister|Lat|Long'), as.numeric))
     if(!'WS' %in% names(DF)) DF <- DF %>% mutate(WS = NA)
@@ -656,8 +653,7 @@ server <- function(input, output) {
     if(!'Temp' %in% names(DF)) DF <- DF %>% mutate(Temp = NA)
     if(!'RH' %in% names(DF)) DF <- DF %>% mutate(RH = NA)
 
-    DF <- as_data_frame(DF)
-    
+    DF <- as.data.frame(DF)
     # apply wind speed correction to m/s
     DF$WS_mps <- as.numeric(DF$WS) / as.numeric(DF$wsunit,2)
     
@@ -689,14 +685,16 @@ server <- function(input, output) {
     DF$QA <- ifelse(is.na(DF$Signal_1),"Missing_Signal",DF$QA ) # flag 13
     ######################## end of AutoQA Flagging
     # Baseline Correction (default to 10)
+    
     DF$bc <- (DF$Signal_1 - getBaseline(DF$Signal_1, DF$Timestamp, df = 10))
-  
+    print(DF)
+    
     # roll up to 5 min
     timeBase <- "5 min"
     timeBreaks <- seq(round(min(DF$Timestamp, na.rm = T), "min"),
                       round(max(DF$Timestamp, na.rm = T), "min"), timeBase)
     DF$timecut <- cut(DF$Timestamp, timeBreaks)
-   
+    
     # average vals to 5 min
     Data_5 <- DF %>%
       dplyr::group_by(Sensor_ID, timecut) %>%
@@ -715,6 +713,7 @@ server <- function(input, output) {
       )
     #calc WD based on U and V (leave WS as a scalar calc)
     Data_5$wd <- atan2(-Data_5$U, -Data_5$V)*180/pi + 180
+    print(Data_5)
     #print(sum(is.na(Data_5$timecut)))
     return(Data_5)
   })
@@ -1336,7 +1335,7 @@ server <- function(input, output) {
     if(!'Canister' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Canister = NA)
     if(!'Temp' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Temp = NA)
     if(!'RH' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(RH = NA)
-    DF_unit <- as_data_frame(DF_unit)
+    DF_unit <- as.data.frame(DF_unit)
     filtered <-
       DF_unit %>%
       filter(Timestamp >= start_time & Timestamp <= end_time)
@@ -1549,7 +1548,7 @@ server <- function(input, output) {
     if(!'Canister' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Canister = NA)
     if(!'Temp' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Temp = NA)
     if(!'RH' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(RH = NA)
-    DF_unit <- as_data_frame(DF_unit)
+    DF_unit <- as.data.frame(DF_unit)
     filtered <-
       DF_unit %>%
       filter(Timestamp >= start_time2 & Timestamp <= end_time2)
@@ -1566,7 +1565,7 @@ server <- function(input, output) {
   
   # make df for cal data unit 1
   getcaldata1 <- reactive({ # make data for QA table, from base dataset entered in data_upload (df_new)
-    filtered1 <- as_data_frame(getcaldata1_base())
+    filtered1 <- as.data.frame(getcaldata1_base())
     filtered_sum <- filtered1 %>%
       select(where(is.numeric)) %>%
       select(-any_of(c("Lat", "Long","u","v"))) %>%  
@@ -1659,7 +1658,7 @@ server <- function(input, output) {
     if(!'Canister' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Canister = NA)
     if(!'Temp' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Temp = NA)
     if(!'RH' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(RH = NA)
-    DF_unit <- as_data_frame(DF_unit)
+    DF_unit <- as.data.frame(DF_unit)
     filtered <-
       DF_unit %>%
       filter(Timestamp >= start_time2 & Timestamp <= end_time2)
@@ -1677,7 +1676,7 @@ server <- function(input, output) {
   
   # make df for cal data unit 2
   getcaldata2 <- reactive({ # make data for QA table, from base dataset entered in data_upload (df_new)
-    filtered2<- as_data_frame(getcaldata2_base())
+    filtered2<- as.data.frame(getcaldata2_base())
     filtered_sum <- filtered2 %>%
       select(where(is.numeric)) %>%
       select(-any_of(c("Lat", "Long","u","v"))) %>%  
@@ -1837,8 +1836,7 @@ server <- function(input, output) {
   
   
   
-  ##### Megan testing here ####
-  
+
   SensorAgreement_build <- reactive({# sensor agreement plot
 
 
@@ -1846,11 +1844,11 @@ server <- function(input, output) {
     # req(input$calunit1select)
     
     req(getcaldata1_base())
-    cal1 <- as_data_frame(getcaldata1_base())
+    cal1 <- as.data.frame(getcaldata1_base())
     cal1 <- cal1 %>%
       select(Signal_BC, Timestamp, unit)
     req(getcaldata2_base())
-    cal2 <- as_data_frame(getcaldata2_base())
+    cal2 <- as.data.frame(getcaldata2_base())
     cal2 <- cal2 %>%
       select(Signal_BC, Timestamp, unit)
     df <- rbind(cal1,cal2)
@@ -1894,28 +1892,7 @@ server <- function(input, output) {
    q <- q %>% layout(showlegend = FALSE)
     #q
    subplot(p,q, nrows = 2)
-    
-   # p <-  df %>%
-   #    group_by(unit) %>%
-   #    do(p=plot_ly(., x = ~Timestamp, y = ~Signal_1, color = ~unit,
-   #                 colors = c("darkgreen", "navy"), type = "scatter",  mode = "lines",  showlegend = T, connectgaps = FALSE)) %>%
-   #    subplot(nrows = 2, shareX = TRUE, shareY = TRUE) %>%
-   #   layout(showlegend = T,
-   #          yaxis = list(title = paste0 ("Raw Signal (",input$Signal_units, ")"), showgrid = FALSE, showline = TRUE, mirror=TRUE),
-   #          legend = list(
-   #            orientation = "h",
-   #            x = 0.3,
-   #            y = -0.5
-   #          ),
-   #          xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, showline = TRUE, mirror=TRUE),
-   #          scene = list(xaxis = list(showgrid = F, showline = TRUE, mirror=TRUE),
-   #                       yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE)))
-   #  
-   #  p
-   #  # 
-   #  
-    
-    
+
     
   })
   
