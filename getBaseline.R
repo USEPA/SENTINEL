@@ -1,6 +1,9 @@
-require(quantreg)   ## Added 2019/10 by HL 
-require(splines)   ## Added 2019/10 by HL 
-require(zoo)	   ## Added 2024/03 by MM
+# Author: H. Brantley
+
+require(quantreg)  
+require(splines)   
+require(zoo)
+
 
 getBaseline <- function(pid, timestamp, df=NA){
   
