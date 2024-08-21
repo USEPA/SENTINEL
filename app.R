@@ -131,7 +131,7 @@ ui <- dashboardPage( ###################################################### buil
     setBackgroundColor("ghostwhite"),
     
     tags$head( 
-      tags$style(HTML(".main-sidebar { font-size: 20px; }")) #change the font size to 20
+      tags$style(HTML(".main-sidebar { font-size: 25px; }")) #change the font size to 20
     ),
     
     tabItems(
@@ -141,9 +141,9 @@ ui <- dashboardPage( ###################################################### buil
                          ".shiny-output-error { visibility: hidden; }",
                          ".shiny-output-error:before { visibility: visible; content: 'Timestamp,Sensor ID, and Signal 1 must be identified to generate Table '; }"
               ),
-              h4("Upload one or more data files from any number of sensors of the same type in .csv format. 
-                 Files should all have the same structure but can be from different unit IDs. 
-                 Use column naming tool to indicate which columns are present. Sensor ID, Timestamp, and Signal are required. "),
+              # h4("Upload one or more data files from any number of sensors of the same type in .csv format. 
+              #    Files should all have the same structure but can be from different unit IDs. 
+              #    Use column naming tool to indicate which columns are present. Sensor ID, Timestamp, and Signal are required. "),
               fluidRow(style = "background-color:ghostwhite;",
                        column(6, 
                               #upload files
@@ -185,7 +185,7 @@ ui <- dashboardPage( ###################################################### buil
                                 ),
                                 # Optional Cols
                                 tabPanel(
-                                  h4("Optional Data"),
+                                  h4("Other"),
                                   uiOutput("Temp_column"),
                                   selectInput("Temp_units", "Temperature Units?", c("C", "F")),
                                   uiOutput("RH_column"),
@@ -236,11 +236,11 @@ ui <- dashboardPage( ###################################################### buil
               fluidRow(  ## SDI row
                 tabBox( ## signal map 
                   title = "Signal Map",side = "right",  ### Signal Map Box
-                  tabPanel("Graph",
+                  tabPanel(h4("Graph"),
                            fluidRow(leafletOutput("polarmap", height = "550px") %>% withSpinner(color = "#0dc5c1"),  height = "550px"),
                            textOutput("latlongtext"),
                   ),
-                  tabPanel("Controls", "Controls",
+                  tabPanel(h4("Controls"), "Controls",
                            sliderInput(
                              "windfilterInput",
                              label = h4("Wind Speed Filter:"),
@@ -264,7 +264,7 @@ ui <- dashboardPage( ###################################################### buil
                 ),
                 tabBox(# SDI plots box
                   title = "SDI plots", side = "right",   ### SDI plots box
-                  tabPanel("SDI",
+                  tabPanel(h4("SDI"),
                            fluidRow(
                              box(
                                selectInput(
@@ -281,7 +281,7 @@ ui <- dashboardPage( ###################################################### buil
                                plotOutput("SDI")%>% withSpinner(color="#0dc5c1"),
                                height = "550px", width = "600px")), height = "550px", width = "600px"
                   ),
-                  tabPanel("Freq", #frequency plot
+                  tabPanel(h4("Freq"), #frequency plot
                            fluidRow(
                              box(
                                selectInput(
@@ -298,7 +298,7 @@ ui <- dashboardPage( ###################################################### buil
                                plotOutput("FREQ") %>% withSpinner(color="#0dc5c1"),
                                height = "550px", width = "600px")), height = "550px", width = "600px"
                   ),
-                  tabPanel("Wind Rose", #Wind Rose plot
+                  tabPanel(h4("Wind Rose"), #Wind Rose plot
                            fluidRow(
                              box(plotOutput("WR") %>% withSpinner(color = "#0dc5c1"),
                                  height = "550px", width = "600px")), height = "550px", width = "600px")),
@@ -309,19 +309,19 @@ ui <- dashboardPage( ###################################################### buil
               fluidRow( ### Time Series plots box
                 tabBox(
                   title = "Time Series",side = "right",
-                  tabPanel("Baseline Fit", "Baseline Fit: Raw signal trace (5 minute values) plotted in black with baseline fit (df = 10) plotted in red",
+                  tabPanel(h4("Baseline"), h4("Baseline Fit: Raw signal trace (5 minute values) plotted in black with baseline fit (df = 10) plotted in red"),
                            plotlyOutput("BCplot")),
-                  tabPanel("Wind Direction", "Wind Direction: Baseline corrected signal trace (5 minute values) plotted in black with wind direction plotted in green (5 minute values)",
+                  tabPanel(h4("WD"), h4("Wind Direction: Baseline corrected signal trace (5 minute values) plotted in black with wind direction plotted in green (5 minute values)"),
                            plotlyOutput("windplot")),
-                  tabPanel("Wind Speed", "Wind Speed: Baseline corrected signal trace (5 minute values) plotted in black with wind direction plotted in gray (5 minute values)",
+                  tabPanel(h4("WS"), h4("Wind Speed: Baseline corrected signal trace (5 minute values) plotted in black with wind direction plotted in gray (5 minute values)"),
                            plotlyOutput("windspeedplot")),
-                  tabPanel("Calibrations", "Calibrations: Baseline corrected signal trace (5 minute values) plotted in black with user-reported calibration periods plotted as points, if collected during this time frame",
+                  tabPanel(h4("Calibrations"), h4("Calibrations: Baseline corrected signal trace (5 minute values) plotted in black with user-reported calibration periods plotted as points, if collected during this time frame"),
                            plotlyOutput("CALplot")),
-                  tabPanel("Relative Humidity", "RH: Baseline corrected signal trace (5 minute values) plotted in black with Relative Humidity (%) plotted in purple",
+                  tabPanel(h4("RH"), h4("RH: Baseline corrected signal trace (5 minute values) plotted in black with Relative Humidity (%) plotted in purple"),
                            plotlyOutput("RHplot")),
-                  tabPanel("Temperature", "Temperature: Baseline corrected signal trace (5 minute values) plotted in black with temperature (deg C) plotted in blue",
+                  tabPanel(h4("Temp"), h4("Temperature: Baseline corrected signal trace (5 minute values) plotted in black with temperature (deg C) plotted in blue"),
                            plotlyOutput("Tplot")),
-                  tabPanel("Can Triggers", "Canister Triggers: Baseline corrected signal trace (5 minute values) plotted in black with canister triggers plotted as points, if collected during this time frame",
+                  tabPanel(h4("Triggers"), h4("Canister Triggers: Baseline corrected signal trace (5 minute values) plotted in black with canister triggers plotted as points, if collected during this time frame"),
                            plotlyOutput("canplot")), 
                   width = 12
                 ), width = 12
@@ -456,7 +456,9 @@ server <- function(input, output) {
         Data <- fread(input$files[[i, 'datapath']]) # will have to edit to "skip to usable dat" somehow ...
         #check for Sensit Connect data, which does not carry the Sensor Id col
         filename <- input$files$name[[i]]
-        Data$spod_check <- ifelse(grepl("SPOD_Data_Export", filename, fixed = TRUE) == TRUE, str_match(filename, "Export_\\s*(.*?)\\s*_20")[,2], "0" )
+        print(filename)
+        Data$spod_check <- ifelse(grepl("SPOD_Data_Export", filename, fixed = TRUE) == TRUE, str_match(filename, "SPOD_Data_Export_\\s*(.*?)\\s*.csv")[,2], "0" )
+        print(str_match(filename, "SPOD_Data_Export_\\s*(.*?)\\s*.csv")[,2])
         # Roll up data
         filelist[[i]] <- Data
       }
@@ -679,7 +681,7 @@ server <- function(input, output) {
     DF$QA <- ifelse(rep(rle(DF$Signal_1)$lengths,
                         times = rle(DF$Signal_1)$lengths) * sign(DF$Signal_1) > 30, "Sig_repeat", DF$QA ) # flag 12
     # check for illogical wind vals
-    DF$QA <- ifelse(DF$WS > 20,"WS_offscale",DF$QA ) # flag 11
+    DF$QA <- ifelse(DF$WS > 40,"WS_offscale",DF$QA ) # flag 11
     DF$QA <- ifelse(DF$WD > 360 | DF$WD < 0,"WD_offscale",DF$QA ) # flag 12
     # check for missing data
     DF$QA <- ifelse(is.na(DF$Signal_1),"Missing_Signal",DF$QA ) # flag 13
@@ -860,11 +862,11 @@ server <- function(input, output) {
     
     trellis.par.set(theme = col.whitebg()) # make background transparent 
     
-    polarPlot(data_all_5_1, pollutant = "bc_signal_1",  fontsize = 18,
+    polarPlot(data_all_5_1, pollutant = "bc_signal_1",  fontsize = 25,
               statistic = statSDI, main = NULL, key.position = "right", 
               par.settings = col.whitebg())
     
-    
+   
     
   })
   output$SDI <- renderPlot({
@@ -980,12 +982,13 @@ server <- function(input, output) {
                              data_all_5$QA == "None")
     
     ay <- list(
-      tickfont = list(color = "black"),
+      tickfont = list(color = "black",size = 20),
       overlaying = "y",
       side = "right",
       title = "5-min Signal (ppb)",
       showgrid = FALSE,
-      showline = TRUE, mirror=TRUE)
+      showline = TRUE, mirror=TRUE,
+      titlefont = list(size = 20))
     w <-
       plot_ly(
         data_all_5_1,
@@ -995,21 +998,21 @@ server <- function(input, output) {
         hovertext = ~ paste0("time: ", data_all_5_1$timecut),
         hoverinfo = "text",
         mode = "markers",  showlegend = T, marker = list(color = "gray")) %>%
-      layout(showlegend = T,
+      layout(showlegend = F,
              legend = list(
                orientation = "h",
                x = 0.3,
                y = -0.5
              ),
-             xaxis = list(type = 'Date', tickformat = "%m/%d/%y %H:%M", showgrid = FALSE, mirror=TRUE),
+             xaxis = list(type = 'Date', tickformat = "%m/%d/%y\n %H:%M", showgrid = FALSE, mirror=TRUE,list(titlefont = list(size = 20),tickfont = list(size = 20))),
              scene = list(xaxis = list(showgrid = F,showline = TRUE, mirror=TRUE),
                           yaxis = list(showgrid = F, showline = TRUE, mirror=TRUE))
       )
     w <- w %>% add_trace(y = data_all_5_1$bc_signal_1, name = 'Signal', yaxis = "y2",type = 'scatter', mode = 'lines', connectgaps = FALSE, line = list(color = "black"), marker = list(color = 'black', opacity=0))
     w <- w %>% layout(
       yaxis2 = ay,
-      xaxis = list(title="Date", showgrid = FALSE, showline = TRUE, mirror=TRUE),
-      yaxis = list(title= list(text = "Wind Speed (m/s)", font = list(color = 'gray')), tickfont = list(color = 'gray'), showgrid = FALSE, showline = TRUE, mirror=TRUE),
+      xaxis = list(title=list(text = "Date", font = list(color = 'black', size = 20)), tickfont = list(color = 'black', size = 20), showgrid = FALSE, showline = TRUE, mirror=TRUE,list(titlefont = list(size = 20),tickfont = list(size = 20))),
+      yaxis = list(title= list(text = "Wind Speed (m/s)", font = list(color = 'gray', size = 20)), tickfont = list(color = 'gray', size = 20), showgrid = FALSE, showline = TRUE, mirror=TRUE,list(titlefont = list(size = 20))),
       margin = list(l = 50, t = 50, b =50, r = 100, pad = 20))
     w
   })
