@@ -11,8 +11,9 @@ The SENTINEL application is developed within the R Shiny framework and features 
 
 ## More Info:
 [SPod & SENTINEL Tools and Training Webinar](https://www.epa.gov/research-states/sensor-pods-volatile-organic-compound-fenceline-monitoring-and-data-analysis)
-[Science Inventory Page]([https://www.epa.gov/research-states/sensor-pods-volatile-organic-compound-fenceline-monitoring-and-data-analysis](https://cfpub.epa.gov/si/si_public_record_report.cfm?Lab=CEMM&dirEntryId=359582))
 
+
+[Science Inventory Page](https://cfpub.epa.gov/si/si_public_record_report.cfm?Lab=CEMM&dirEntryId=359582)
 
 ## Contact:
 Contact Megan MacDonald with any feedback or suggestions (macdonald.megan@epa.gov)
