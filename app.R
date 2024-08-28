@@ -408,12 +408,12 @@ ui <- dashboardPage( ###################################################### buil
               
               fluidRow(
                 box( width = 12,
-                     h4("Version 1.0 (Feb 2024)"),
+                     h4("Version 1.0 (Aug 2024)"),
                      br(),
                      h4("Contact:"),
                      h4("macdonald.megan@epa.gov"),
                      br(),
-                     actionButton("pdf", "SENTINEL User Guide",class = "btn-success", class = "btn-lg", onclick = "window.open('SENTINEL Shiny App User Guide V1.pdf')"),
+                     #actionButton("pdf", "SENTINEL User Guide",class = "btn-success", class = "btn-lg", onclick = "window.open('SENTINEL Shiny App User Guide V1.pdf')"),
                      br()
                 )
               )
@@ -457,8 +457,8 @@ server <- function(input, output) {
         #check for Sensit Connect data, which does not carry the Sensor Id col
         filename <- input$files$name[[i]]
         print(filename)
-        Data$spod_check <- ifelse(grepl("SPOD_Data_Export", filename, fixed = TRUE) == TRUE, str_match(filename, "SPOD_Data_Export_\\s*(.*?)\\s*.csv")[,2], "0" )
-        print(str_match(filename, "SPOD_Data_Export_\\s*(.*?)\\s*.csv")[,2])
+        Data$spod_check <- ifelse(grepl("SPOD_Data_Export", filename, fixed = TRUE) == TRUE, str_match(filename, "SPOD_Data_Export_\\s*(.*?)\\s*_")[,2], "0" )
+        print(str_match(filename, "SPOD_Data_Export_\\s*(.*?)\\s*_")[,2])
         # Roll up data
         filelist[[i]] <- Data
       }
