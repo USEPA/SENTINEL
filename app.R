@@ -168,7 +168,7 @@ ui <- dashboardPage( ###################################################### buil
                                   uiOutput("ID_column"),
                                   uiOutput("Time_column"),
                                   uiOutput("Time_Zone"),
-                                  selectInput("Time_format", "Time Format", c("%d-%b-%Y %H:%M:%S","%Y-%m-%d %H:%M:%S","%m-%d-%Y %H:%M:%S","%d-%m-%Y %H:%M:%S","%m/%d/%y %H:%M:%S", "%m/%d/%Y %H:%M:%S"), selected = "%d-%b-%Y %H:%M:%S"),
+                                  selectInput("Time_format", "Time Format", c("%d-%b-%Y %H:%M:%S","%Y-%m-%d %H:%M:%S","%m-%d-%Y %H:%M:%S","%d-%m-%Y %H:%M:%S","%m/%d/%y %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%m/%d/%Y %H:%M"), selected = "%d-%b-%Y %H:%M:%S"),
                                   
                                 ),
                                 tabPanel(
@@ -434,7 +434,7 @@ ui <- dashboardPage( ###################################################### buil
 
 server <- function(input, output) {
   
-  
+  options(shiny.maxRequestSize=60*1024^2)
   
   # Data Upload Page Functions ----------------------------------------------
   
