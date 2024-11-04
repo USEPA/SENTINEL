@@ -155,6 +155,14 @@ ui <- dashboardPage( ###################################################### buil
                               br(),
                               br(),
                               downloadButton('saveQAfile',"Download Compiled Data"),
+                              radioButtons(
+                               "skip_val",
+                               "Header lines to skip?",
+                                choices = c(0,1,2,3),
+                                selected = 0,
+                                inline = TRUE
+                              
+                              )
                               
                        )
               ),
@@ -442,9 +450,10 @@ server <- function(input, output) {
   # read in files
   test <- reactive({
     req(input$files)
-    #req(input$skip_val)
+    req(input$skip_val)
     inFile <- input$files
-    #skip_num <- input$skip_val
+    skip_num <- as.numeric(input$skip_val)
+    print(skip_num)
     if (is.null(inFile)){
       return(NULL)
     } else {
@@ -453,8 +462,9 @@ server <- function(input, output) {
       for (i in 1:numfiles)
       { # check for SENSIT SPod data which does not carry a sensor ID col. 
         #read in data file
-        Data <- fread(input$files[[i, 'datapath']]) # will have to edit to "skip to usable dat" somehow ...
+        Data <- fread(input$files[[i, 'datapath']], skip = skip_num) # will have to edit to "skip to usable dat" somehow ...   EDITED##############
         #check for Sensit Connect data, which does not carry the Sensor Id col
+        print(Data)
         filename <- input$files$name[[i]]
         print(filename)
         Data$spod_check <- ifelse(grepl("SPOD_Data_Export", filename, fixed = TRUE) == TRUE, str_match(filename, "SPOD_Data_Export_\\s*(.*?)\\s*_")[,2], "0" )
