@@ -560,7 +560,7 @@ server <- function(input, output) {
                    c(names(test_df), "NA"), 
                    selected=ifelse(any(names(test_df) == 'lat'),'lat', 'NA'))
   })
-  
+   
   output$Long_column <- renderUI({
     req(input$files)
     test_df <- test()
@@ -652,6 +652,9 @@ server <- function(input, output) {
     ##################### Data prep and cleaning
     #formats <- c( "%d-%b-%Y %H:%M:%S","%Y-%m-%d %H:%M:%S", "%m/%d/%y %H:%M:%S", "%m/%d/%Y %H:%M:%S" )
     formats <- time_format
+    DF$Timestamp <- stringr::str_replace_all(DF$Timestamp, " AM", "") #strip out any AM/PM
+    DF$Timestamp <- stringr::str_replace_all(DF$Timestamp, " PM", "") #strip out any AM/PM
+    print(DF$Timestamp)
     DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats, tz = TimeZone)
     #DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
     #force cols to numeric if they exist ; create NA versions if they dont exist so QA can run 
