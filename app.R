@@ -7,7 +7,7 @@
 
 # M.K. MacDonald -//- ORD/CEMM/AMCD/SFSB -//- macdonald.megan@epa.gov
 
-# Rev. 1.1: June 2024
+# Rev. 1.1: January
 
 # This is a Shiny web application. You can run the application by clicking the 'Run App' button above.
 
@@ -70,7 +70,7 @@ options(scipen=999)  # turn off scientific notation in app
 
 ########################################################### app starts here:
 
-
+options(shiny.maxRequestSize=30*1024^2)
 
 
 # User Interface Build
@@ -442,7 +442,7 @@ ui <- dashboardPage( ###################################################### buil
 
 server <- function(input, output) {
   
-  options(shiny.maxRequestSize=60*1024^2)
+  options(shiny.maxRequestSize=60*1024^4)
   
   # Data Upload Page Functions ----------------------------------------------
   
@@ -610,6 +610,7 @@ server <- function(input, output) {
     names(df_1)[names(df_1) == old_Time_name] <- 'Timestamp'
     
     df_1 <- as.data.frame(df_1)
+    print(df_1)
     return(df_1)
   })
   
@@ -683,7 +684,7 @@ server <- function(input, output) {
     DF$Lat[is.na(DF$Lat)] <- 0
     DF$Long[is.na(DF$Long)] <- 0
     
-    ##################### Complete quick Auto QA scan
+    ##################### Complete Auto QA scan
     ##### look for QA col, if not there, add it
     if(!'QA' %in% names(DF)) DF <- DF %>% add_column(QA = "None")
     # check for repeated wind/PID vals
@@ -700,8 +701,8 @@ server <- function(input, output) {
     DF$QA <- ifelse(is.na(DF$Signal_1),"Missing_Signal",DF$QA ) # flag 13
     ######################## end of AutoQA Flagging
     # Baseline Correction (default to 10)
-    
-    DF$bc <- (DF$Signal_1 - getBaseline(DF$Signal_1, DF$Timestamp, df = 10))
+    DF <- DF[!is.na(DF$Timestamp),]
+    DF$bc <- (DF$Signal_1 - getBaseline(DF$Signal_1, DF$Timestamp, df = 10)) 
     print(DF)
     
     # roll up to 5 min
@@ -821,8 +822,8 @@ server <- function(input, output) {
     data_all_5 <- as.data.frame(data_5min_active()) 
     data_all_5_1 <- subset(data_all_5,
                            data_all_5$ws >= input$windfilterInput[1] & 
-                             data_all_5$ws <= input$windfilterInput[2] &
-                             data_all_5$QA == "None")
+                             data_all_5$ws <= input$windfilterInput[2]&
+                             data_all_5$QA == "None") 
     
     output$latlongtext <- renderText({ "Note: Basemap only displayed when lat/long data detected"})
     polarMap(data_all_5_1,
@@ -831,8 +832,8 @@ server <- function(input, output) {
              pollutant = 'bc_signal_1',
              statistic = statinput,
              provider = "Esri.WorldImagery",
-             cols = "jet",
              key = TRUE,
+             #limits = "fixed",
              # iconWidth = 450, iconHeight = 650,
              # fig.width = 5, fig.height = 5,
              par.settings=list(fontsize=list(text=19),
@@ -1352,17 +1353,14 @@ server <- function(input, output) {
     if(!'Temp' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Temp = NA)
     if(!'RH' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(RH = NA)
     DF_unit <- as.data.frame(DF_unit)
+    #print(getBaseline(DF_unit$Signal_1, DF_unit$Timestamp, df = 10))
+    DF_unit$BC <- DF_unit$Signal_1 - getBaseline(DF_unit$Signal_1, DF_unit$Timestamp, df = 10)
     filtered <-
       DF_unit %>%
       filter(Timestamp >= start_time & Timestamp <= end_time)
     filtered$u <- filtered$WS * sin(2 * pi * filtered$WD/360)
     filtered$v <- filtered$WS * cos(2 * pi * filtered$WD/360)
     filtered$WD <- atan2(-1 *filtered$u, -1 *filtered$v)*180/pi + 180
-    print("filtered")
-    
-    #filtered$Signal_BC <- ifelse(nrow(filtered)> 10,(filtered$Signal_1 - getBaseline(filtered$Signal_1, filtered$Timestamp, df = 10)), NA )
-    filtered$Signal_BC <- filtered$Signal_1 - getBaseline(filtered$Signal_1, filtered$Timestamp, df = 10)
-    print(filtered)
     filtered_sum <- filtered %>%
       select(where(is.numeric)) %>%
       select(-any_of(c("Lat", "Long","u","v"))) %>%  
@@ -1565,13 +1563,15 @@ server <- function(input, output) {
     if(!'Temp' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Temp = NA)
     if(!'RH' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(RH = NA)
     DF_unit <- as.data.frame(DF_unit)
+    DF_unit$BC <- DF_unit$Signal_1 - getBaseline(DF_unit$Signal_1, DF_unit$Timestamp, df = 10)
+    
     filtered <-
       DF_unit %>%
       filter(Timestamp >= start_time2 & Timestamp <= end_time2)
     filtered$u <- filtered$WS * sin(2 * pi * filtered$WD/360)
     filtered$v <- filtered$WS * cos(2 * pi * filtered$WD/360)
     filtered$WD <- atan2(-1 *filtered$u, -1 *filtered$v)*180/pi + 180
-    filtered$Signal_BC <- filtered$Signal_1 - getBaseline(filtered$Signal_1, filtered$Timestamp, df = 10)
+    #filtered$Signal_BC <- filtered$Signal_1 - getBaseline(filtered$Signal_1, filtered$Timestamp, df = 10)
     filtered$unit <- as.character(input$calunitselect1)
     
     print(filtered)
@@ -1675,13 +1675,15 @@ server <- function(input, output) {
     if(!'Temp' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(Temp = NA)
     if(!'RH' %in% names(DF_unit)) DF_unit <- DF_unit %>% mutate(RH = NA)
     DF_unit <- as.data.frame(DF_unit)
+    DF_unit$BC <- DF_unit$Signal_1 - getBaseline(DF_unit$Signal_1, DF_unit$Timestamp, df = 10)
+    
     filtered <-
       DF_unit %>%
       filter(Timestamp >= start_time2 & Timestamp <= end_time2)
     filtered$u <- filtered$WS * sin(2 * pi * filtered$WD/360)
     filtered$v <- filtered$WS * cos(2 * pi * filtered$WD/360)
     filtered$WD <- atan2(-1 *filtered$u, -1 *filtered$v)*180/pi + 180
-    filtered$Signal_BC <- filtered$Signal_1 - getBaseline(filtered$Signal_1, filtered$Timestamp, df = 10)
+    #filtered$Signal_BC <- filtered$Signal_1 - getBaseline(filtered$Signal_1, filtered$Timestamp, df = 10)
     filtered$unit <- as.character(input$calunitselect2)
     print(filtered)
     return(filtered)
