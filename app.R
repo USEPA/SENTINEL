@@ -176,7 +176,10 @@ ui <- dashboardPage( ###################################################### buil
                                   uiOutput("ID_column"),
                                   uiOutput("Time_column"),
                                   uiOutput("Time_Zone"),
-                                  selectInput("Time_format", "Time Format", c("%d-%b-%Y %H:%M:%S","%Y-%m-%d %H:%M:%S","%m-%d-%Y %H:%M:%S","%d-%m-%Y %H:%M:%S","%m/%d/%y %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%m/%d/%Y %H:%M"), selected = "%d-%b-%Y %H:%M:%S"),
+                                  selectInput("Time_format", "Time Format", c("%d-%b-%Y %H:%M:%S","%Y-%m-%d %H:%M:%S","%m-%d-%Y %H:%M:%S",
+                                                                              "%d-%m-%Y %H:%M:%S","%m/%d/%y %H:%M:%S", "%m/%d/%Y %H:%M:%S", 
+                                                                              "%m/%d/%Y %H:%M", "%m/%d/%y %H:%M", "%m/%d/%Y %I:%M:%S %p"), 
+                                              selected = "%d-%b-%Y %H:%M:%S"),
                                   
                                 ),
                                 tabPanel(
@@ -232,11 +235,18 @@ ui <- dashboardPage( ###################################################### buil
                        uiOutput("unitselect")
                        
                 ),
-                column(2, 
+                column(1, #2
                        radioButtons("ws_select", label = "Remove low WS?", 
                                     choices = c("All Data", ">1 m/s"),
                                     selected = "All Data", inline=TRUE)
                 ),
+                ###########################################################
+                column(1, 
+                       radioButtons("QA_data", label = "QA Pass Only?", 
+                                    choices = c("All Data", "QA Pass"),
+                                    selected = "All Data", inline=TRUE)
+                ),
+                ###########################################################
                 column(1, 
                        downloadButton("report", "Export"),
                 )
@@ -653,8 +663,8 @@ server <- function(input, output) {
     ##################### Data prep and cleaning
     #formats <- c( "%d-%b-%Y %H:%M:%S","%Y-%m-%d %H:%M:%S", "%m/%d/%y %H:%M:%S", "%m/%d/%Y %H:%M:%S" )
     formats <- time_format
-    DF$Timestamp <- stringr::str_replace_all(DF$Timestamp, " AM", "") #strip out any AM/PM
-    DF$Timestamp <- stringr::str_replace_all(DF$Timestamp, " PM", "") #strip out any AM/PM
+    # DF$Timestamp <- stringr::str_replace_all(DF$Timestamp, " AM", "") #strip out any AM/PM
+    # DF$Timestamp <- stringr::str_replace_all(DF$Timestamp, " PM", "") #strip out any AM/PM
     print(DF$Timestamp)
     DF$Timestamp <- lubridate::parse_date_time(DF$Timestamp, formats, tz = TimeZone)
     #DF$Timestamp <- as.POSIXct(DF$Timestamp, format = "%Y-%m-%d %H:%M:%S", tz = TimeZone)
@@ -792,14 +802,15 @@ server <- function(input, output) {
     data_5min_highws <- subset(all, all$ws >= 1)
   })
   
+  
   # select between SPods for analysis 
   output$unitselect <- renderUI({
     choice <-  unique(data_5min()$Sensor_ID)
     selectInput("unitselect",h4("Select unit to display:"), choices = choice, selected = choice[1])
   })
   
-  # select active SPod data set (> 1 min or normal)
-  data_5min_active <- reactive({
+  # select active SPod data set (> 1 m/s or normal)
+  data_5min_active1 <- reactive({
     if (input$ws_select == "All Data")
       data_5min()
     else if (input$ws_select == ">1 m/s")
@@ -808,7 +819,23 @@ server <- function(input, output) {
     #   stop("Unexpected dataset")
   })
   
+  # build in option to exclude non-QA pass data from analysis 
+  data_5min_QApass <- reactive({
+    req(data_5min_active1())
+    all <- data_5min_active1()
+    data_5min_QApass <- subset(all, all$QA == "None")
+  })
   
+
+  # select active SPod data set (Only QA Pass or normal)
+  data_5min_active <- reactive({
+    if (input$QA_data == "All Data")
+      data_5min_active1()
+    else if (input$ws_select == "QA Pass")
+      data_5min_QApass()
+    # else
+    #   stop("Unexpected dataset")
+  })
   
   
   # Leaflet polar map
@@ -822,8 +849,7 @@ server <- function(input, output) {
     data_all_5 <- as.data.frame(data_5min_active()) 
     data_all_5_1 <- subset(data_all_5,
                            data_all_5$ws >= input$windfilterInput[1] & 
-                             data_all_5$ws <= input$windfilterInput[2]&
-                             data_all_5$QA == "None") 
+                             data_all_5$ws <= input$windfilterInput[2]) #& data_all_5$QA == "None"
     
     output$latlongtext <- renderText({ "Note: Basemap only displayed when lat/long data detected"})
     polarMap(data_all_5_1,
@@ -854,8 +880,7 @@ server <- function(input, output) {
    # print(unitinput)
     data_all_5 <- as.data.frame(data_5min_active())
     data_all_5_1 <- subset(data_all_5,
-                           data_all_5$Sensor_ID == input$unitselect &
-                             data_all_5$QA == "None")
+                           data_all_5$Sensor_ID == input$unitselect ) #& data_all_5$QA == "None"
     statFREQ <- input$statselectFREQ
     trellis.par.set(theme = col.whitebg()) # make background transparent 
     
@@ -870,8 +895,7 @@ server <- function(input, output) {
     req(input$statselectSDI) 
     data_all_5 <- as.data.frame(data_5min_active())
     data_all_5_1 <- subset(data_all_5,
-                           data_all_5$Sensor_ID == input$unitselect &
-                             data_all_5$QA == "None")
+                           data_all_5$Sensor_ID == input$unitselect ) #&data_all_5$QA == "None"
     statSDI <- input$statselectSDI
     
     trellis.par.set(theme = col.whitebg()) # make background transparent 
@@ -890,8 +914,7 @@ server <- function(input, output) {
     req(data_5min_active())
     data_all_5 <- as.data.frame(data_5min_active())
     data_all_5_1 <- subset(data_all_5,
-                           data_all_5$Sensor_ID == input$unitselect &
-                             data_all_5$QA == "None")
+                           data_all_5$Sensor_ID == input$unitselect) # & data_all_5$QA == "None"
     
     #trellis.par.set(background = list(col="green")) # make background transparent 
     
@@ -911,8 +934,7 @@ server <- function(input, output) {
     req(data_5min_active())
     data_all_5 <- as.data.frame(data_5min_active())
     data_all_5_1 <- subset(data_all_5,
-                           data_all_5$Sensor_ID == input$unitselect &
-                             data_all_5$QA == "None")
+                           data_all_5$Sensor_ID == input$unitselect) # & data_all_5$QA == "None"
     p <-
       plot_ly(
         data_all_5_1,
@@ -945,8 +967,7 @@ server <- function(input, output) {
     req(data_5min_active())
     data_all_5 <- as.data.frame(data_5min_active())
     data_all_5_1 <- subset(data_all_5,
-                           data_all_5$Sensor_ID == input$unitselect &
-                             data_all_5$QA == "None")
+                           data_all_5$Sensor_ID == input$unitselect ) # & data_all_5$QA == "None"
     
     ay <- list(
       tickfont = list(color = "black"),
@@ -992,8 +1013,7 @@ server <- function(input, output) {
     req(data_5min_active())
     data_all_5 <- as.data.frame(data_5min_active())
     data_all_5_1 <- subset(data_all_5,
-                           data_all_5$Sensor_ID == input$unitselect &
-                             data_all_5$QA == "None")
+                           data_all_5$Sensor_ID == input$unitselect) # & data_all_5$QA == "None"
     
     ay <- list(
       tickfont = list(color = "black",size = 20),
@@ -1115,8 +1135,7 @@ server <- function(input, output) {
     req(data_5min_active())
     data_all_5 <- as.data.frame(data_5min_active())
     data_all_5_1 <- subset(data_all_5,
-                           data_all_5$Sensor_ID == input$unitselect &
-                             data_all_5$QA == "None")
+                           data_all_5$Sensor_ID == input$unitselect ) # & data_all_5$QA == "None"
     ay <- list(
       tickfont = list(color = "black"),
       overlaying = "y",
@@ -1159,8 +1178,7 @@ server <- function(input, output) {
     req(data_5min_active())
     data_all_5 <- as.data.frame(data_5min_active())
     data_all_5_1 <- subset(data_all_5,
-                           data_all_5$Sensor_ID == input$unitselect &
-                             data_all_5$QA == "None")
+                           data_all_5$Sensor_ID == input$unitselect ) # & data_all_5$QA == "None"
     
     ay <- list(
       tickfont = list(color = "black"),
