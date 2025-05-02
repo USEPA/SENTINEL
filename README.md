@@ -11,6 +11,7 @@ The SENTINEL application is developed within the R Shiny framework and features 
 
 ## More Info:
 [Science Inventory Page](https://cfpub.epa.gov/si/si_public_record_report.cfm?Lab=CEMM&dirEntryId=359582)
+
 [SENTINEL Journal Article](https://www.sciencedirect.com/science/article/pii/S136481522500146X)
 
 ## Citing SENTINEL:
