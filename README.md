@@ -11,6 +11,10 @@ The SENTINEL application is developed within the R Shiny framework and features 
 
 ## More Info:
 [Science Inventory Page](https://cfpub.epa.gov/si/si_public_record_report.cfm?Lab=CEMM&dirEntryId=359582)
+[SENTINEL Journal Article](https://www.sciencedirect.com/science/article/pii/S136481522500146X)
+
+## Citing SENTINEL:
+MacDonald, M. K., Champion, W. M., & Thoma, E. D. (2025). SENTINEL: A Shiny App for Processing and Analysis of Fenceline Sensor Data. Environmental Modelling & Software, 106462.
 
 ## Contact:
 Contact Megan MacDonald with any feedback or suggestions (macdonald.megan@epa.gov)
